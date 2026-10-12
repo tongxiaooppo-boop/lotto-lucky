@@ -82,6 +82,10 @@ for (const g of Object.values(GAMES)) {
   assert.deepEqual(R.pickExtra(sl, hist, { source: "current_streak", k: 1 }, rng), [3]);
   assert.deepEqual(R.pickExtra(sl, hist, { source: "last_repeat", k: 1 }, rng), [3]);             // 上一期的第二區
   assert.deepEqual(R.pickExtra(sl, hist, { source: "longest_gap", k: 1 }, rng).length, 1);
+  for (const source of ["weighted_freq", "weighted_gap"]) {                                         // 加權隨機:個數、範圍、不重複
+    const w = R.pickExtra(sl, hist, { source, k: 3 }, R.makeRng(7));
+    assert.equal(new Set(w).size, 3); assert.ok(w.every(v => v >= 1 && v <= 8));
+  }
   assert.deepEqual(R.pickExtra(sl, hist, { k: 8 }, rng), [1, 2, 3, 4, 5, 6, 7, 8]);                // k = 全部
   assert.ok(R.pickExtra(sl, hist, { source: "least_drawn", k: 1 }, rng)[0] !== 3);
   assert.ok(R.pickExtra(sl, hist, { source: "hot_n", k: 1, n: 2 }, rng).length === 1);

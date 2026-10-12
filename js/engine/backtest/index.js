@@ -1,6 +1,6 @@
 // 策略回測(F5.3):對每個測試期,只用「該期以前」的資料產生推薦,再與實際開獎比對。
 // 純函式;strategyFn(history, rng) → 主號陣列(history 為範圍內的開獎,舊→新)。
-import { makeRng, pickSecond, pickExtra, SOURCES } from "../recipes/index.js";
+import { makeRng, pickSecond, pickExtra, EXTRA_SOURCES } from "../recipes/index.js";
 import { hypergeom } from "../stats/index.js";
 import { STRATEGIES } from "../recipes/strategies.js";
 
@@ -120,7 +120,7 @@ export function backtestExtra(spec, draws, source, { k = 1, n, scopeN = null, te
 
 // 各統計來源一次比較(含隨機),依命中率排序。
 export function compareExtra(spec, draws, opts, onProgress) {
-  const srcs = SOURCES;
+  const srcs = EXTRA_SOURCES;
   const rows = srcs.map((s, i) => {
     const r = backtestExtra(spec, draws, s.id, { ...opts, n: s.needsN ? 10 : undefined });
     onProgress?.((i + 1) / srcs.length);

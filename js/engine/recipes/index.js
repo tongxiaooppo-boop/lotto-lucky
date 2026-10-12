@@ -12,6 +12,12 @@ export const SOURCES = [
   { id: "neighbor", label: "鄰號(上期號碼前後)" },
   { id: "random", label: "隨機" },
 ];
+// 特別號/第二區專用來源:主號配方的來源 + 兩種加權隨機(號碼少,等同其他遊戲的「加權隨機」策略)。
+export const EXTRA_SOURCES = [
+  ...SOURCES,
+  { id: "weighted_freq", label: "加權隨機(依頻率)" },
+  { id: "weighted_gap", label: "加權隨機(依遺漏)" },
+];
 export const sourceLabel = id => SOURCES.find(s => s.id === id)?.label ?? id;
 
 // 可重現亂數(mulberry32)
@@ -168,6 +174,13 @@ export function pickExtra(spec, draws, opts, rng) {
   if (!Number.isInteger(k) || k < 1) throw new RangeError("k 必須是 >= 1 的整數");
   if (k >= range) return Array.from({ length: range }, (_, i) => spec.extra.min + i);
   const { spec2, draws2 } = extraView(spec, draws, k);
+  if (source === "weighted_freq" || source === "weighted_gap") {
+    const rows = numberStats(mainSeries(draws2), spec2.min, spec2.max, 1);
+    const w = new Map(rows.map(r => [r.number, source === "weighted_freq" ? r.count + 1 : r.curGap + 1]));
+    // Efraimidis-Spirakis 不放回加權抽樣
+    return rows.map(r => ({ v: r.number, key: Math.pow(rng(), 1 / w.get(r.number)) }))
+      .sort((a, b) => b.key - a.key).slice(0, k).map(x => x.v).sort((a, b) => a - b);
+  }
   const items = [{ source, count: k, ...(n ? { n } : {}) }];
   return generateByRecipe(spec2, draws2, { items, tieBreak, fillRandom: true }, rng).map(p => p.number).sort((a, b) => a - b);
 }
