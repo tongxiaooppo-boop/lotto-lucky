@@ -6,6 +6,7 @@ import { scopeOf, statsState } from "./stats.js";
 import { SOURCES, EXTRA_SOURCES, makeRng, generateByRecipe, pickExtra, expandTickets, ticketCount } from "../engine/recipes/index.js";
 import { STRATEGIES, strategyById, generateSets, coverTickets } from "../engine/recipes/strategies.js";
 import { PRESETS } from "../core/presets.js";
+import { STRATEGY_RANK } from "../core/strategy_rank.js";
 import { EXTRA_PRESETS } from "../core/presets_extra.js";
 import { loadRecipes, saveRecipe, deleteRecipe, exportRecipes, importRecipes } from "../data/recipes.js";
 
@@ -134,9 +135,13 @@ export async function renderPick(root, game, ui) {
 
   // ---- 一鍵策略 ----
   const coverIn = h("input", { class: "input num", type: "number", min: 2, max: 50, value: st.coverN, onchange: e => { st.coverN = Math.max(2, Math.min(50, Math.trunc(+e.target.value) || 5)); } });
+  const rankOf = new Map((STRATEGY_RANK[game.name] ?? []).map(r => [r.id, r]));
+  const rankedStrategies = STRATEGIES.map((s, i) => ({ ...s, rank: rankOf.get(s.id), i }))
+    .sort((a, b) => (a.rank ? STRATEGY_RANK[game.name].indexOf(a.rank) : 99) - (b.rank ? STRATEGY_RANK[game.name].indexOf(b.rank) : 99) || a.i - b.i);
   const strategies = h("div", { class: "card" },
     h("h3", {}, "一鍵策略"),
-    h("div", { class: "row" }, STRATEGIES.map(s => h("button", { class: "btn sm" + (s.id === "balanced" ? " mint" : ""), title: s.note ?? "", onclick: () => run(s.label, (r, f) => s.run(game, draws, { fixed: f, add: st.add }, r)) }, s.label))),
+    h("div", { class: "row" }, rankedStrategies.map(s => h("button", { class: "btn sm" + (s.id === "balanced" ? " mint" : ""), title: (s.note ? s.note + " / " : "") + (s.rank ? `回測 ${signed(s.rank.diff)}(p=${s.rank.p.toFixed(2)})` : ""), onclick: () => run(s.label, (r, f) => s.run(game, draws, { fixed: f, add: st.add }, r)) }, s.label, s.rank && h("small", { class: "rankdiff" }, ` ${signed(s.rank.diff)}`)))),
+    h("div", { class: "hint" }, "按鈕由左至右、由上而下,依回測成績(最近約 2000 期,與隨機理論值的差,單位:平均命中個數)排列。排名不代表更準:差距多半不顯著(看 p 值),純隨機基準也會排在中間,換遊戲或重跑名次就變。"),
     h("div", { class: "hint" }, "均衡型:奇偶比、大小比取歷史常見種類,和值落在歷史 10%~90% 區間,再隨機填號,目的是避開極端組合而非提高中獎率。純隨機是基準線。長按/滑過按鈕可看各策略說明。"),
     h("div", { class: "row", style: "margin-top:10px" }, "多注覆蓋:", coverIn, "注",
       h("button", { class: "btn sm yellow", onclick: () => {

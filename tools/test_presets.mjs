@@ -24,4 +24,12 @@ for (const g of Object.values(GAMES)) {
     }
   }
 }
+// 一鍵策略回測排名:每個遊戲的 id 與 STRATEGIES 完全對應,且由高到低排序
+import { STRATEGY_RANK } from "../js/core/strategy_rank.js";
+import { STRATEGIES } from "../js/engine/recipes/strategies.js";
+for (const g of Object.values(GAMES)) {
+  const rows = STRATEGY_RANK[g.name];
+  assert.deepEqual(rows.map(r => r.id).sort(), STRATEGIES.map(s => s.id).sort(), `${g.name} 策略排名與策略清單不一致`);
+  assert.ok(rows.every((r, i) => !i || rows[i - 1].diff >= r.diff && r.p >= 0 && r.p <= 1));
+}
 console.log("presets tests passed");

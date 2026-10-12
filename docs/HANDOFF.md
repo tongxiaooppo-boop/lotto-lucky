@@ -23,6 +23,7 @@
 index.html, css/style.css           漫畫風(參考 D:\ok\jioka2)
 js/core/games.js                    三個遊戲的規格(號碼數、範圍、特別號、每注金額、預設期數)
 js/core/presets.js                  回測組合按鈕(由 tools/preset_search.mjs 產生,勿手改)
+js/core/strategy_rank.js            一鍵策略回測排名(由 tools/strategy_rank.mjs 產生,勿手改;選號頁依此排序)
 js/core/presets_extra.js            特別號/第二區回測組合(由 tools/preset_search_extra.mjs 產生,勿手改)
 js/data/store.js                    讀 data/*.json + localStorage(本機資料、備份)
 js/data/official.js                 官網 JSON 介面抓取(瀏覽器與 Node 共用)+ 重試/退避
