@@ -1,5 +1,5 @@
 // 選號引擎:配方、一鍵策略、包牌展開。純函式;隨機一律經由傳入的 rng,可用種子重現。
-import { numberStats, mainSeries, extraSeries, sumDistribution, parityAndSize } from "../stats/index.js";
+import { numberStats, mainSeries, extraSeries, sumDistribution, parityAndSize, applyScope } from "../stats/index.js";
 
 export const SOURCES = [
   { id: "most_drawn", label: "最多次" },
@@ -83,7 +83,8 @@ export function generateByRecipe(spec, draws, recipe, rng) {
   if (picks.length + total > need) throw new Error(`條目合計 ${total} 個,加上固定號碼已超過需要的 ${need} 個`);
   for (const item of recipe.items) {
     let got = 0;
-    for (const number of ranked(spec, draws, item, recipe.tieBreak ?? "random", rng)) {
+    const scoped = item.scope ? applyScope(draws, item.scope) : draws;   // F4.4 條目自訂範圍
+    for (const number of ranked(spec, scoped, item, recipe.tieBreak ?? "random", rng)) {
       if (got >= item.count) break;
       if (taken.has(number)) continue;   // F4.2 去重:已被取走的跳過,取下一個
       taken.add(number); picks.push({ number, source: sourceLabel(item.source) }); got++;

@@ -95,3 +95,7 @@ details summary { cursor: pointer; font-weight: 700; margin-top: 10px; }
 .heat { display: grid; gap: 1px; background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 2px; }
 .hm { display: block; aspect-ratio: 1; background: var(--pink); }
 .hm.diag { background: #ddd; }
+
+/* 進度條 */
+.pbar { height: 14px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; overflow: hidden; margin-top: 10px; }
+.pbar i { display: block; height: 100%; width: 0; background: var(--pink); transition: width .15s; }
