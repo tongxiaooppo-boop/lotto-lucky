@@ -30,16 +30,24 @@ function sortableTable(cols, rows, sortKey, desc = true) {
   return wrap;
 }
 
+// 各遊戲的統計狀態(範圍等),「選號」分頁共用同一個範圍。
+export function statsState(ui, game) {
+  const st = (ui.stats ??= {});
+  return (st[game.name] ??= { type: "last_n", n: game.defaultScope, from: "", to: "", section: "次數", target: "main", recentN: 10, recentK: 3 });
+}
+export function scopeOf(ui, game) {
+  const sc = statsState(ui, game);
+  return sc.type === "range" ? { type: "range", from: sc.from, to: sc.to } : sc.type === "all" ? { type: "all" } : { type: "last_n", n: sc.n };
+}
+
 export async function renderStats(root, game, ui) {
   const { draws: all } = await getDraws(game);
-  const st = (ui.stats ??= {});
-  const sc = (st[game.name] ??= { type: "last_n", n: game.defaultScope, from: "", to: "", section: "次數", target: "main", recentN: 10, recentK: 3 });
+  const sc = statsState(ui, game);
   const body = h("div", { class: "view" });
   root.replaceChildren(body);
   const rerender = () => renderStats(root, game, ui);
 
-  const scope = sc.type === "range" ? { type: "range", from: sc.from, to: sc.to } : sc.type === "all" ? { type: "all" } : { type: "last_n", n: sc.n };
-  const draws = S.applyScope(all, scope);
+  const draws = S.applyScope(all, scopeOf(ui, game));
 
   // ---- 範圍列 ----
   const setType = t => { sc.type = t; rerender(); };

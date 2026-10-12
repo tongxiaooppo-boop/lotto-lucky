@@ -77,3 +77,16 @@ body {
 .tbl .ball { width: 30px; height: 30px; font-size: 13px; border-width: 2px; }
 .bar { display: inline-block; width: 70px; height: 10px; margin-left: 8px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; overflow: hidden; vertical-align: middle; }
 .bar i { display: block; height: 100%; background: var(--mint); }
+
+/* 選號 */
+.sel { width: auto; padding: 7px 10px; font-size: 14px; }
+.item { margin-bottom: 8px; }
+.ok { color: #1a8f7f; } b.bad { color: #d33; }
+.pickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; }
+.pg { font-family: inherit; font-weight: 700; font-size: 14px; padding: 6px 0; background: #fff; border: 2px solid var(--ink); border-radius: 10px; cursor: pointer; }
+.pg.on { background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); }
+.pool { display: flex; gap: 12px; flex-wrap: wrap; }
+.pickball { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pickball small { font-size: 10px; color: var(--gray); max-width: 64px; text-align: center; }
+.tickets { font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.8; margin-top: 8px; max-height: 260px; overflow: auto; }
+details summary { cursor: pointer; font-weight: 700; margin-top: 10px; }
