@@ -14,3 +14,4 @@ jobs:
       - run: node tools/test_recipes.mjs
       - run: node tools/test_strategies.mjs
       - run: node tools/test_backtest.mjs
+      - run: node tools/test_official.mjs

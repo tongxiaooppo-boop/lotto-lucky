@@ -36,7 +36,8 @@ export async function getDraws(game) {
   const base = await loadBase(game);
   const local = loadLocal(game);
   const { merged } = mergeDraws(game, base, local);
-  return { draws: merged, localPeriods: new Set(local.map(d => d.period)) };
+  const inBase = new Set(base.map(d => d.period));
+  return { draws: merged, localPeriods: new Set(local.filter(d => !inBase.has(d.period)).map(d => d.period)) };
 }
 
 // 把新資料併入「本機資料」(與官方資料重複的期別會略過)。

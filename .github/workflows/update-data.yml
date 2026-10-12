@@ -1,0 +1,37 @@
+name: update-data
+# 開獎日晚間(台灣時間約 21:30)抓一次官網最新期數;驗證通過才 commit,失敗不會動到既有資料。
+on:
+  schedule:
+    - cron: "30 13 * * 1-6"   # UTC 13:30 = 台灣 21:30,週一到週六(539 每天、大樂透 二五、威力彩 一四)
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: 抓取官網最新開獎
+        run: node tools/fetch_latest.mjs
+      - name: 重建 data/*.json
+        run: python tools/build_json.py
+      - name: 驗證資料與測試
+        run: |
+          node tools/check_data.mjs
+          node tools/test_engine.mjs
+      - name: Commit 並觸發發布
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain data history)" ]; then echo "沒有新資料"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data history
+          git commit -m "資料更新:$(date -u -d '+8 hours' +%F)"
+          git push
+          gh workflow run pages.yml

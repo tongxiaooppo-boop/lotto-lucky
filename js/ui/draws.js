@@ -2,6 +2,7 @@
 import { h, toast, download } from "./dom.js";
 import { getDraws, addToLocal, exportLocal, clearLocal, loadLocal } from "../data/store.js";
 import { parseCsv, checkContinuity } from "../engine/draws.js";
+import { fetchLatest } from "../data/official.js";
 
 const COUNTS = [5, 10, 20, 50];
 const fmt = n => String(n).padStart(2, "0");
@@ -52,6 +53,21 @@ export async function renderDraws(root, game, ui) {
       r.failed.length > 20 && h("div", { class: "hint" }, `…另有 ${r.failed.length - 20} 筆`)));
     if (r.added.length) { toast(`新增 ${r.added.length} 期`); setTimeout(refresh, 1200); }
   };
+
+  const syncBtn = h("button", { class: "btn yellow", onclick: async () => {
+    syncBtn.disabled = true; syncBtn.textContent = "更新中…";
+    try {
+      const r = await fetchLatest(game, draws);
+      const res = await addToLocal(game, r.draws);
+      res.failed.push(...r.failed, ...r.conflicts.map(c => ({ period: c.period, reason: "官網資料與本地不同,已保留本地(請人工確認)" })));
+      showReport(res, "官網更新");
+      if (!res.added.length && !res.failed.length) toast("已是最新");
+    } catch (err) { toast(`官網更新失敗:${err.message}(可改用手動輸入或匯入 CSV)`, true); }
+    syncBtn.disabled = false; syncBtn.textContent = "從官網更新";
+  } }, "從官網更新");
+  const sync = h("div", { class: "card" }, h("h3", {}, "自動更新"),
+    h("div", { class: "row" }, syncBtn),
+    h("div", { class: "hint" }, "一鍵向台灣彩券官網抓取缺少的期數,存在這個瀏覽器(標示「本機」)。官網介面若改版會失敗,可改用下方手動輸入或匯入 CSV。"));
 
   const period = h("input", { class: "input", placeholder: String(+last.period + 1) });
   const date = h("input", { class: "input", type: "date" });
@@ -108,5 +124,5 @@ export async function renderDraws(root, game, ui) {
       ? h("div", { class: "bad" }, `期別不連號,可能缺漏:${gaps.slice(0, 10).join("、")}${gaps.length > 10 ? ` …共 ${gaps.length} 處` : ""}`)
       : h("div", {}, "期別連號,無缺漏。"));
 
-  body.append(h("div", { class: "label mint" }, "更新資料"), manual, io, report, health);
+  body.append(h("div", { class: "label mint" }, "更新資料"), sync, manual, io, report, health);
 }

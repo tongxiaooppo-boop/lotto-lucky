@@ -7,10 +7,15 @@
 ## 資料出處
 台灣彩券官網「歷史開獎號碼下載」:<https://www.taiwanlottery.com/lotto/history/result_download>。原始 CSV 放於 `history/`,以 `python tools/build_json.py` 整合為 `data/*.json`。
 
+## 更新資料
+- 網頁「開獎」分頁按「從官網更新」,新資料存在你的瀏覽器(標示「本機」)。
+- 共用資料:GitHub Actions(`update-data.yml`)在週一到週六晚間自動抓取、驗證、commit。手動執行:`node tools/fetch_latest.mjs && python tools/build_json.py`。
+- 官網 CSV 約每月更新一次,取得後放進 `history/` 再執行 `python tools/build_json.py`,同期別以官方 CSV 為準。
+
 ## 開發
 - 驗證資料:`node tools/check_data.mjs`
 - 本機執行:雙擊 `start.bat`(或 `python -m http.server 8000`),開 http://localhost:8000
-- 引擎測試:`node tools/test_engine.mjs`
+- 測試:`node tools/test_engine.mjs`、`test_stats`、`test_stats_more`、`test_recipes`、`test_strategies`、`test_backtest`、`test_official`(皆在 `tools/`,不需連網)
 
 ## 授權
 待定(見 PRD 第 10.5 節)。

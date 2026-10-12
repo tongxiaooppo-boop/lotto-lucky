@@ -5,8 +5,9 @@ GAMES = {"今彩539": ("539", 5, None), "大樂透": ("lotto649", 6, "特別號"
 for game, (key, n, extra) in GAMES.items():
     files = glob.glob(os.path.join(ROOT, "**", game + "_*.csv"), recursive=True)
     rows = {}
-    # 補登資料先處理,官方 CSV 後處理而覆蓋同期別
-    for f in sorted(files, key=lambda f: ("manual" not in f, f)):
+    # history/api(官網介面抓取)與 history/manual(人工補登)先處理,官方 CSV 後處理而覆蓋同期別
+    pre = lambda f: os.path.basename(os.path.dirname(f)) in ("api", "manual")
+    for f in sorted(files, key=lambda f: (not pre(f), f)):
         with open(f, encoding="utf-8-sig", newline="") as fh:
             r = csv.reader(fh)
             hdr = [h.strip() for h in next(r)]
