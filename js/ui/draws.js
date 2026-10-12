@@ -5,21 +5,27 @@ import { parseCsv, checkContinuity } from "../engine/draws.js";
 import { fetchLatest } from "../data/official.js";
 
 const COUNTS = [5, 10, 20, 50];
+const MAX_RANGE = 500;
 const fmt = n => String(n).padStart(2, "0");
 const money = n => (n == null ? "-" : Number(n).toLocaleString("en-US"));
 
 export async function renderDraws(root, game, ui) {
   const { draws, localPeriods } = await getDraws(game);
-  const state = (ui.drawsState ??= { n: 10, extra: false });
+  const state = (ui.drawsState ??= { n: 10, extra: false, from: "", to: "" });
   const body = h("div", { class: "view" });
   root.replaceChildren(body);
   const refresh = () => renderDraws(root, game, ui);
 
   // ---- 近 N 期 ----
   const list = h("div");
+  const rangeInfo = h("span", { class: "hint" });
   const drawList = () => {
     const idx = new Map(draws.map((d, i) => [d.period, i]));
-    list.replaceChildren(...draws.slice(-state.n).reverse().map(d => {
+    const ranged = state.from || state.to;
+    const shown = ranged ? draws.filter(d => (!state.from || d.date >= state.from) && (!state.to || d.date <= state.to)) : draws;
+    const rows = shown.slice(-(ranged ? MAX_RANGE : state.n)).reverse();
+    rangeInfo.textContent = ranged ? `區間內 ${shown.length} 期` + (shown.length > MAX_RANGE ? `,僅顯示最近 ${MAX_RANGE} 期` : "") : "";
+    list.replaceChildren(...rows.map(d => {
       const prev = draws[idx.get(d.period) - 1];
       const rep = new Set(prev ? prev.numbers : []);
       const balls = d.numbers.map(n => h("span", { class: "ball" + (rep.has(n) ? " rep" : "") }, fmt(n)));
@@ -31,10 +37,15 @@ export async function renderDraws(root, game, ui) {
     }));
   };
   const chips = h("div", { class: "row" });
-  const setN = n => { state.n = n; drawChips(); drawList(); };
+  const setN = n => { state.n = n; state.from = state.to = ""; drawChips(); drawList(); };
+  const setRange = (k, v) => { state[k] = v; drawChips(); drawList(); };
   const drawChips = () => chips.replaceChildren(
-    ...COUNTS.map(n => h("button", { class: "chip" + (state.n === n ? " on" : ""), onclick: () => setN(n) }, `${n} 期`)),
+    ...COUNTS.map(n => h("button", { class: "chip" + (state.n === n && !state.from && !state.to ? " on" : ""), onclick: () => setN(n) }, `${n} 期`)),
     h("input", { class: "input num", type: "number", min: 1, max: 500, placeholder: "自訂", onchange: e => { const v = Math.max(1, Math.min(500, Math.trunc(+e.target.value))); if (v) setN(v); } }),
+    h("input", { class: "input", type: "date", value: state.from, "aria-label": "起日", onchange: e => setRange("from", e.target.value) }),
+    h("span", {}, "~"),
+    h("input", { class: "input", type: "date", value: state.to, "aria-label": "迄日", onchange: e => setRange("to", e.target.value) }),
+    rangeInfo,
     h("button", { class: "chip mint" + (state.extra ? " on" : ""), onclick: () => { state.extra = !state.extra; drawChips(); drawList(); } }, "顯示銷售額/獎金"));
   drawChips(); drawList();
   const last = draws.at(-1);
