@@ -6,6 +6,7 @@ import { scopeOf, statsState } from "./stats.js";
 import { SOURCES, EXTRA_SOURCES, makeRng, generateByRecipe, pickExtra, expandTickets, ticketCount } from "../engine/recipes/index.js";
 import { STRATEGIES, strategyById, generateSets, coverTickets } from "../engine/recipes/strategies.js";
 import { PRESETS } from "../core/presets.js";
+import { EXTRA_PRESETS } from "../core/presets_extra.js";
 import { loadRecipes, saveRecipe, deleteRecipe, exportRecipes, importRecipes } from "../data/recipes.js";
 
 const fmt = n => String(n).padStart(2, "0");
@@ -34,6 +35,8 @@ export async function renderPick(root, game, ui) {
 
   const need = game.count + st.add - st.fixed.length;
   const have = st.items.reduce((a, i) => a + i.count, 0);
+  const signed = x => (x >= 0 ? "+" : "") + x.toFixed(3);
+  const extraPresets = EXTRA_PRESETS[game.name] ?? [];
   const extraRange = game.extra ? game.extra.max - game.extra.min + 1 : 0;
   const secondCount = game.extra?.pickable ? Math.min(st.extraK, extraRange) : 1;
   const tickets = ticketCount(game, game.count + st.add, secondCount);
@@ -55,6 +58,11 @@ export async function renderPick(root, game, ui) {
       h("div", { class: "row" },
         h("select", { class: "input sel", onchange: e => { st.extraSource = e.target.value; clear(); rerender(); } }, EXTRA_SOURCES.map(s => h("option", { value: s.id, selected: s.id === st.extraSource }, s.label))),
         EXTRA_SOURCES.find(s => s.id === st.extraSource)?.needsN && h("span", { class: "row", style: "gap:4px" }, "近", h("input", { class: "input num", type: "number", min: 1, value: st.extraN, onchange: e => { st.extraN = Math.max(1, Math.trunc(+e.target.value) || 10); } }), "期")),
+      extraPresets.length > 0 && h("div", { style: "margin-top:6px" },
+        h("div", { class: "hint" }, `回測組合(前半段歷史挑、後半段驗證;按下套用選法${game.extra.pickable ? "與個數" : ""}):`),
+        h("div", { class: "row" }, extraPresets.map(p => h("button", { class: "chip mint", title: `訓練段 ${signed(p.train.diff)} → 測試段 ${signed(p.test.diff)}(p=${p.test.p.toFixed(2)}),單位:命中率 − 隨機理論值`,
+          onclick: () => { st.extraSource = p.source; st.extraK = game.extra.pickable ? p.k : 1; if (p.n) st.extraN = p.n; clear(); rerender(); } }, `${p.name}(測試 ${signed(p.test.diff)})`))),
+        h("div", { class: "hint" }, "測試段多半回到 0 附近,代表沒有可靠優勢,按鈕只是方便套用。")),
       game.extra.pickable && h("div", { class: "row", style: "margin-top:6px" }, "個數:",
         [1, 2, 3].map(k => h("button", { class: "chip pink" + (st.extraK === k ? " on" : ""), onclick: () => { st.extraK = k; clear(); rerender(); } }, String(k))),
         h("button", { class: "chip pink" + (st.extraK >= extraRange ? " on" : ""), onclick: () => { st.extraK = extraRange; clear(); rerender(); } }, `全部(${extraRange})`))),
@@ -66,7 +74,6 @@ export async function renderPick(root, game, ui) {
       h("div", { class: "hint" }, `每注 NT$ ${game.price}。包牌只是把號碼組合買齊,不會提高單注的中獎機率。`)));
 
   // ---- 回測組合(一鍵套用) ----
-  const signed = x => (x >= 0 ? "+" : "") + x.toFixed(3);
   const applyPreset = p => {
     // 固定號碼與「增加號碼」會改變需要的名額:依序截斷條目,不足的由隨機補滿
     let remaining = Math.max(0, game.count + st.add - st.fixed.length);

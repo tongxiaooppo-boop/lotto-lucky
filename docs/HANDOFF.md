@@ -23,6 +23,7 @@
 index.html, css/style.css           漫畫風(參考 D:\ok\jioka2)
 js/core/games.js                    三個遊戲的規格(號碼數、範圍、特別號、每注金額、預設期數)
 js/core/presets.js                  回測組合按鈕(由 tools/preset_search.mjs 產生,勿手改)
+js/core/presets_extra.js            特別號/第二區回測組合(由 tools/preset_search_extra.mjs 產生,勿手改)
 js/data/store.js                    讀 data/*.json + localStorage(本機資料、備份)
 js/data/official.js                 官網 JSON 介面抓取(瀏覽器與 Node 共用)+ 重試/退避
 js/data/recipes.js                  儲存的配方(localStorage)
@@ -59,13 +60,13 @@ node tools/test_strategies.mjs     # 一鍵策略、覆蓋、過濾
 node tools/test_backtest.mjs       # 回測(含不洩漏未來資料、特別號回測)
 node tools/test_official.mjs       # 官網抓取(假 fetch,不連網)
 node tools/test_presets.mjs        # 回測組合按鈕
+node tools/test_presets_extra.mjs  # 特別號/第二區回測組合
 ```
 CI(`check.yml`)在每次 push 跑資料驗證與上述測試。UI 沒有自動化測試,我是用 headless Chrome 透過 CDP 腳本逐頁點過(腳本在暫存資料夾,**不在 repo**)。
 
 ## 6. 未完成 / 待決
 **未做**
 - 第二區/特別號沒有均衡型、冷熱混合等多號策略(只有 1~數個號碼,不適用);已有統計來源 + 兩種加權隨機。
-- 回測組合按鈕只針對主號。
 - 沒有在真的手機、Safari、Firefox 上驗證過畫面(只用電腦版 Chrome 無頭模式 480px 寬截圖)。
 - 自動更新**「有新資料時」自動 commit 並重新發布**那一段沒驗證過(只驗證到「沒有新資料」)。下一次有新開獎後去 Actions 頁面確認。
 - 官網 CSV 與 API 的**使用條款未確認**。API 格式改版時抓取會失敗,手動輸入與 CSV 匯入是備援。
@@ -76,7 +77,7 @@ CI(`check.yml`)在每次 push 跑資料驗證與上述測試。UI 沒有自動�
 
 ## 7. 重要結論與決策(完整版見 `docs/decisions.md`)
 - **回測結論:沒有任何策略穩定優於純隨機。** 全歷史(539 5,960 期、大樂透 2,147 期、威力彩 1,923 期)、2 種歷史窗口、3 個種子,共 180 次檢定、13 次 p<0.05,換種子即消失,校正多重比較後沒有一個成立。
-- **回測組合按鈕**:前半段歷史挑、後半段歷史驗證,介面上同時顯示兩段成績。測試段多半回到 0 附近;大樂透 4 個組合測試段約 +0.04~+0.05(最佳 p=0.042,但未校正且彼此相關),僅值得之後觀察。
+- **回測組合按鈕**(主號與特別號/第二區皆有;第二區測試段 diff 全在 ±0.01 內,同樣無優勢):前半段歷史挑、後半段歷史驗證,介面上同時顯示兩段成績。測試段多半回到 0 附近;大樂透 4 個組合測試段約 +0.04~+0.05(最佳 p=0.042,但未校正且彼此相關),僅值得之後觀察。
 - 定位:描述歷史 + 娛樂,所有選號頁面固定顯示免責聲明。不做「綜合評分」「高機率」之類說法。
 - 大樂透特別號是開獎附加號,**投注時不用選**:選號頁只當「參考」,不計入注數/金額。威力彩第二區要選,可 1 個~全部 8 個(全包)。
 - 每注金額:539 與大樂透 50 元、威力彩 100 元(**憑記憶設的,請核對**,在 `js/core/games.js`)。
