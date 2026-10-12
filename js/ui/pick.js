@@ -53,7 +53,7 @@ export async function renderPick(root, game, ui) {
     game.extra && h("div", { class: "field" },
       h("label", {}, game.extra.pickable ? `${game.extra.label}(${game.extra.min}-${game.extra.max}):選法與個數` : `${game.extra.label}參考(${game.extra.min}-${game.extra.max}):投注時不用選,僅供參考`),
       h("div", { class: "row" },
-        h("select", { class: "input sel", onchange: e => { st.extraSource = e.target.value; clear(); rerender(); } }, SOURCES.map(s => h("option", { value: s.id, selected: s.id === st.extraSource }, s.label))),
+        h("select", { class: "input sel", onchange: e => { st.extraSource = e.target.value; clear(); rerender(); } }, EXTRA_SOURCES.map(s => h("option", { value: s.id, selected: s.id === st.extraSource }, s.label))),
         EXTRA_SOURCES.find(s => s.id === st.extraSource)?.needsN && h("span", { class: "row", style: "gap:4px" }, "近", h("input", { class: "input num", type: "number", min: 1, value: st.extraN, onchange: e => { st.extraN = Math.max(1, Math.trunc(+e.target.value) || 10); } }), "期")),
       game.extra.pickable && h("div", { class: "row", style: "margin-top:6px" }, "個數:",
         [1, 2, 3].map(k => h("button", { class: "chip pink" + (st.extraK === k ? " on" : ""), onclick: () => { st.extraK = k; clear(); rerender(); } }, String(k))),
