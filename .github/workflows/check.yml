@@ -10,4 +10,5 @@ jobs:
       - run: node tools/check_data.mjs
       - run: node tools/test_engine.mjs
       - run: node tools/test_stats.mjs
+      - run: node tools/test_stats_more.mjs
       - run: node tools/test_recipes.mjs

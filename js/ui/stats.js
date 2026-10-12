@@ -2,33 +2,8 @@
 import { h } from "./dom.js";
 import { getDraws } from "../data/store.js";
 import * as S from "../engine/stats/index.js";
-
-const SECTIONS = ["次數", "連莊", "遺漏", "近期", "重號", "和值", "奇偶大小", "檢定"];
-const fmt = n => String(n).padStart(2, "0");
-const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
-const ball = (n, cls = "") => h("span", { class: "ball " + cls }, fmt(n));
-
-function bar(ratio, max = 1) {
-  return h("span", { class: "bar" }, h("i", { style: `width:${Math.max(0, Math.min(100, (ratio / max) * 100)).toFixed(1)}%` }));
-}
-
-// 可點欄位標題排序的表格。cols: {key, label, fmt?, bar?}
-function sortableTable(cols, rows, sortKey, desc = true) {
-  const wrap = h("div", { class: "table-wrap" });
-  const state = { key: sortKey, desc };
-  const draw = () => {
-    const sorted = [...rows].sort((a, b) => {
-      const x = a[state.key] ?? -Infinity, y = b[state.key] ?? -Infinity;
-      return (state.desc ? y - x : x - y) || a.number - b.number;
-    });
-    wrap.replaceChildren(h("table", { class: "tbl" },
-      h("thead", {}, h("tr", {}, cols.map(c => h("th", { onclick: () => { state.desc = state.key === c.key ? !state.desc : true; state.key = c.key; draw(); } },
-        c.label, state.key === c.key ? (state.desc ? " ▼" : " ▲") : "")))),
-      h("tbody", {}, sorted.map(r => h("tr", {}, cols.map(c => h("td", {}, c.render ? c.render(r) : c.fmt ? c.fmt(r[c.key]) : r[c.key] ?? "-")))))));
-  };
-  draw();
-  return wrap;
-}
+import { fmt, pct, ball, bar, sortableTable } from "./widgets.js";
+import { renderMore, MORE_SECTIONS } from "./stats_more.js";
 
 // 各遊戲的統計狀態(範圍等),「選號」分頁共用同一個範圍。
 export function statsState(ui, game) {
@@ -39,6 +14,8 @@ export function scopeOf(ui, game) {
   const sc = statsState(ui, game);
   return sc.type === "range" ? { type: "range", from: sc.from, to: sc.to } : sc.type === "all" ? { type: "all" } : { type: "last_n", n: sc.n };
 }
+
+const CORE_SECTIONS = ["次數", "連莊", "遺漏", "近期", "重號", "和值", "奇偶大小", "檢定"];
 
 export async function renderStats(root, game, ui) {
   const { draws: all } = await getDraws(game);
@@ -66,7 +43,7 @@ export async function renderStats(root, game, ui) {
       ? `${game.name}:共 ${draws.length} 期(${draws[0].date} ~ ${draws.at(-1).date})。預設 ${game.defaultScope} 期。`
       : "此範圍內沒有資料。"));
 
-  const secBar = h("div", { class: "row" }, SECTIONS.map(s => h("button", { class: "chip mint" + (sc.section === s ? " on" : ""), onclick: () => { sc.section = s; rerender(); } }, s)));
+  const secBar = h("div", { class: "row" }, [...CORE_SECTIONS, ...MORE_SECTIONS].map(s => h("button", { class: "chip mint" + (sc.section === s ? " on" : ""), onclick: () => { sc.section = s; rerender(); } }, s)));
   const targetBar = game.extra && ["次數", "連莊", "遺漏"].includes(sc.section) && h("div", { class: "row" },
     h("button", { class: "chip pink" + (sc.target === "main" ? " on" : ""), onclick: () => { sc.target = "main"; rerender(); } }, "主號"),
     h("button", { class: "chip pink" + (sc.target === "extra" ? " on" : ""), onclick: () => { sc.target = "extra"; rerender(); } }, game.extra.label));
@@ -164,4 +141,5 @@ export async function renderStats(root, game, ui) {
         : `p ≥ 0.05:沒有證據顯示各號碼的出現次數偏離均勻分布,與「完全隨機」一致。所謂冷熱號只是隨機波動。`),
       h("div", { class: "hint" }, `檢驗虛無假設「每個號碼被開出的機率相同」。範圍內共 ${c.total} 個號碼次,每號碼期望 ${c.expected.toFixed(1)} 次。`)));
   }
+  else body.append(...renderMore(sc.section, { game, draws, mainSer, sc, rerender, card }));
 }

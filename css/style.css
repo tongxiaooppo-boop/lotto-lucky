@@ -90,3 +90,8 @@ body {
 .pickball small { font-size: 10px; color: var(--gray); max-width: 64px; text-align: center; }
 .tickets { font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.8; margin-top: 8px; max-height: 260px; overflow: auto; }
 details summary { cursor: pointer; font-weight: 700; margin-top: 10px; }
+
+/* 配對熱力圖 */
+.heat { display: grid; gap: 1px; background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 2px; }
+.hm { display: block; aspect-ratio: 1; background: var(--pink); }
+.hm.diag { background: #ddd; }
