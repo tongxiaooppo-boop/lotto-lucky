@@ -5,7 +5,8 @@ GAMES = {"今彩539": ("539", 5, None), "大樂透": ("lotto649", 6, "特別號"
 for game, (key, n, extra) in GAMES.items():
     files = glob.glob(os.path.join(ROOT, "**", game + "_*.csv"), recursive=True)
     rows = {}
-    for f in files:
+    # 補登資料先處理,官方 CSV 後處理而覆蓋同期別
+    for f in sorted(files, key=lambda f: ("manual" not in f, f)):
         with open(f, encoding="utf-8-sig", newline="") as fh:
             r = csv.reader(fh)
             hdr = [h.strip() for h in next(r)]
@@ -15,8 +16,10 @@ for game, (key, n, extra) in GAMES.items():
                 d = dict(zip(hdr, [c.strip() for c in line]))
                 nums = [int(d["獎號%d" % i]) for i in range(1, n + 1)]
                 rec = {"period": d["期別"], "date": d["開獎日期"].replace("/", "-"),
-                       "sales": int(d["銷售總額"]), "bets": int(d["銷售注數"]),
-                       "prize": int(d["總獎金"]), "numbers": nums}
+                       "numbers": nums}
+                for k, h in (("sales", "銷售總額"), ("bets", "銷售注數"), ("prize", "總獎金")):
+                    if d.get(h):  # 補登資料(history/manual)沒有銷售欄位
+                        rec[k] = int(d[h])
                 if extra:
                     rec["special"] = int(d[extra])
                 y, m, dd = rec["date"].split("-")
