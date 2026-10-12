@@ -42,6 +42,23 @@ assert.equal(M.monthOf({ date: "2026-10-12" }), 10);
 const st = M.salesTrend([{ date: "2025-01-01", sales: 100, prize: 40 }, { date: "2025-01-02", sales: 300, prize: 60 }, { date: "2026-01-01" }]);
 assert.deepEqual(st.rows, [{ year: "2025", draws: 2, sales: 400, prize: 100, avgSales: 200, avgPrize: 50 }]);
 
+
+// 擷取自 808888 的三項(手算樣本)
+{
+  const rows = M.hotColdZ([[1], [1], [1], [2]], 1, 4, 1, 0);
+  near(rows[0].expected, 1); near(rows[0].z, 2 / Math.sqrt(0.75));
+  assert.deepEqual([rows[0].tag, rows[1].tag, rows[2].tag], ["hot", "normal", "cold"]);
+  assert.equal(M.hotColdZ([[1], [2], [3]], 1, 4, 1, 2).reduce((a, r) => a + r.count, 0), 2);
+  assert.throws(() => M.hotColdZ([[1]], 4, 1, 1), RangeError);
+  const d = M.dragFor([[1, 2], [3, 4], [1, 5], [3, 6], [2, 7]], 1, 7, 1, 2);
+  assert.equal(d.aCount, 2); assert.deepEqual(d.top.map(x => [x.b, x.count]), [[3, 2], [4, 1], [6, 1]]);
+  near(d.top[0].lift, 1 / (2 / 7)); assert.equal(M.dragFor([[1, 2]], 1, 7, 1, 2).top.length, 0);
+  assert.equal(M.acValue([1, 2, 3, 4, 5]), 0); assert.equal(M.acValue([1, 3, 7, 12, 20]), 6);
+  assert.equal(M.primeCount([1, 2, 3, 4, 5, 6, 7]), 4);
+  const pf = M.patternFeatures([[1, 2, 3, 4, 5], [1, 3, 7, 12, 20]]);
+  assert.deepEqual(pf.ac.map(x => [x.k, x.count]), [[0, 1], [6, 1]]);
+}
+
 // 真實資料:不丟例外、總數一致、效能
 for (const g of Object.values(GAMES)) {
   const draws = JSON.parse(readFileSync(new URL(`../data/${g.name}.json`, import.meta.url), "utf-8"));
@@ -52,6 +69,8 @@ for (const g of Object.values(GAMES)) {
   assert.equal(M.tailStats(ser).tails.reduce((a, s) => a + s.count, 0), draws.length * g.count);
   M.spanStats(ser); M.pairStats(ser, g.min, g.max); M.comboRepeats(draws);
   M.groupBias(draws, g.min, g.max, M.weekdayOf); M.salesTrend(draws);
+  M.hotColdZ(ser, g.min, g.max, g.count, 30); M.patternFeatures(ser);
+  for (let a = g.min; a <= g.max; a++) M.dragFor(ser, g.min, g.max, a, g.count);
   assert.ok(performance.now() - t < 1000);
 }
 console.log("stats(more) tests passed");

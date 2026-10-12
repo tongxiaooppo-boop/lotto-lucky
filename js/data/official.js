@@ -24,13 +24,29 @@ export function normalizeRecord(spec, r) {
   return d;
 }
 
-export async function fetchMonth(spec, month, fetchFn = fetch) {
+// 網路層:最多重試 attempts 次、指數退避(1s、2s…)。只重試「連線/HTTP/官網回報錯誤」;
+// 資料格式改版(找不到清單)重試也沒用,直接丟錯。(重試作法參考 taiwan-lottery-dashboard 的 api_get。)
+export async function fetchJson(url, { fetchFn = fetch, attempts = 3, baseDelayMs = 1000, sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+  let last;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetchFn(url);
+      if (!res.ok) throw new Error(`官網回應 ${res.status}`);
+      const json = await res.json();
+      if (json.rtCode !== 0) throw new Error(`官網回報錯誤:${json.rtMsg ?? json.rtCode}`);
+      return json;
+    } catch (e) {
+      last = e;
+      if (i < attempts - 1) await sleep(baseDelayMs * 2 ** i);
+    }
+  }
+  throw new Error(`連續 ${attempts} 次失敗:${last.message}`, { cause: last });
+}
+
+export async function fetchMonth(spec, month, net = {}) {
   const ep = ENDPOINTS[spec.name];
   const url = `${BASE}/${ep.path}?period&month=${month}&endMonth=${month}&pageNum=1&pageSize=100`;
-  const res = await fetchFn(url);
-  if (!res.ok) throw new Error(`官網回應 ${res.status}`);
-  const json = await res.json();
-  if (json.rtCode !== 0) throw new Error(`官網回報錯誤:${json.rtMsg ?? json.rtCode}`);
+  const json = await fetchJson(url, net);
   const list = json.content?.[ep.list];
   if (!Array.isArray(list)) throw new Error("官網資料格式已變更(找不到開獎清單)");
   if (json.content.totalSize > list.length) throw new Error(`${month} 資料超過一頁(${json.content.totalSize} 筆)`);
@@ -62,11 +78,11 @@ export function monthsToFetch(existing, today) {
 export const taipeiToday = (now = new Date()) => new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 
 // 抓取缺少的資料。回傳 {draws, failed, conflicts};conflicts = 與既有資料同期別但號碼不同(需人工確認)。
-export async function fetchLatest(spec, existing, { today = taipeiToday(), fetchFn = fetch, delayMs = 400 } = {}) {
+export async function fetchLatest(spec, existing, { today = taipeiToday(), fetchFn = fetch, delayMs = 400, ...net } = {}) {
   const have = new Map(existing.map(d => [d.period, d]));
   const draws = [], failed = [], conflicts = [];
   for (const month of monthsToFetch(existing, today)) {
-    const r = await fetchMonth(spec, month, fetchFn);
+    const r = await fetchMonth(spec, month, { fetchFn, ...net });
     failed.push(...r.failed);
     for (const d of r.draws) {
       const old = have.get(d.period);

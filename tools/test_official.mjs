@@ -1,7 +1,7 @@
 // 官網抓取模組的離線測試(用假的 fetch,不連網)。
 import assert from "node:assert/strict";
 import { GAMES } from "../js/core/games.js";
-import { normalizeRecord, fetchMonth, monthsToFetch, fetchLatest, taipeiToday } from "../js/data/official.js";
+import { normalizeRecord, fetchMonth, fetchJson, monthsToFetch, fetchLatest, taipeiToday } from "../js/data/official.js";
 
 const g539 = GAMES["今彩539"], g649 = GAMES["大樂透"], gsl = GAMES["威力彩"];
 
@@ -13,19 +13,32 @@ assert.deepEqual(normalizeRecord(g649, { period: 115000095, lotteryDate: "2026-1
 assert.equal(normalizeRecord(gsl, { period: 115000081, lotteryDate: "2026-10-08T00:00:00", drawNumberSize: [4, 23, 27, 28, 29, 38, 5], sellAmount: 55267600 }).bets, 552676);
 assert.throws(() => normalizeRecord(g539, { period: 1, lotteryDate: "2026-10-10T00:00:00", drawNumberSize: [1, 2, 3] }), /號碼數量/);
 
+const noSleep = { sleep: async () => {} };
 const reply = (list, extra = {}) => async () => ({ ok: true, status: 200, json: async () => ({ rtCode: 0, content: { totalSize: list.length, daily539Res: list, ...extra } }) });
 const rec = (p, date, nums) => ({ period: p, lotteryDate: date + "T00:00:00", drawNumberSize: nums, sellAmount: 1000, totalAmount: 500 });
 
 // fetchMonth:壞資料進 failed,好資料排序
 {
-  const r = await fetchMonth(g539, "2026-10", reply([rec(115000002, "2026-10-02", [1, 2, 3, 4, 5]), rec(115000001, "2026-10-01", [1, 2, 3, 4, 5]), rec(115000003, "2026-10-03", [1, 2, 3, 4, 99])]));
+  const r = await fetchMonth(g539, "2026-10", { fetchFn: reply([rec(115000002, "2026-10-02", [1, 2, 3, 4, 5]), rec(115000001, "2026-10-01", [1, 2, 3, 4, 5]), rec(115000003, "2026-10-03", [1, 2, 3, 4, 99])]), ...noSleep });
   assert.deepEqual(r.draws.map(d => d.period), ["115000001", "115000002"]); assert.equal(r.failed.length, 1);
 }
-// 格式改版 / 錯誤碼 / 非 200 要明確丟錯
-await assert.rejects(fetchMonth(g539, "2026-10", async () => ({ ok: true, status: 200, json: async () => ({ rtCode: 0, content: {} }) })), /格式已變更/);
-await assert.rejects(fetchMonth(g539, "2026-10", async () => ({ ok: true, status: 200, json: async () => ({ rtCode: 9, rtMsg: "x" }) })), /官網回報錯誤/);
-await assert.rejects(fetchMonth(g539, "2026-10", async () => ({ ok: false, status: 503 })), /503/);
-await assert.rejects(fetchMonth(g539, "2026-10", async () => ({ ok: true, status: 200, json: async () => ({ rtCode: 0, content: { totalSize: 150, daily539Res: [] } }) })), /超過一頁/);
+// 格式改版 / 錯誤碼 / 非 200 要明確丟錯(重試用的 sleep 以假函式取代,測試不等待)
+const jsonReply = obj => async () => ({ ok: true, status: 200, json: async () => obj });
+await assert.rejects(fetchMonth(g539, "2026-10", { fetchFn: jsonReply({ rtCode: 0, content: {} }), ...noSleep }), /格式已變更/);
+await assert.rejects(fetchMonth(g539, "2026-10", { fetchFn: jsonReply({ rtCode: 9, rtMsg: "x" }), ...noSleep }), /連續 3 次失敗:官網回報錯誤/);
+await assert.rejects(fetchMonth(g539, "2026-10", { fetchFn: async () => ({ ok: false, status: 503 }), ...noSleep }), /連續 3 次失敗:官網回應 503/);
+await assert.rejects(fetchMonth(g539, "2026-10", { fetchFn: jsonReply({ rtCode: 0, content: { totalSize: 150, daily539Res: [] } }), ...noSleep }), /超過一頁/);
+
+// 重試:前 2 次失敗、第 3 次成功;退避 1s、2s;格式錯誤不重試
+{
+  let calls = 0; const waits = [];
+  const flaky = async () => (++calls < 3 ? { ok: false, status: 503 } : { ok: true, status: 200, json: async () => ({ rtCode: 0, content: {} }) });
+  const j = await fetchJson("u", { fetchFn: flaky, sleep: async ms => { waits.push(ms); } });
+  assert.equal(j.rtCode, 0); assert.equal(calls, 3); assert.deepEqual(waits, [1000, 2000]);
+  let c2 = 0;
+  await assert.rejects(fetchMonth(g539, "2026-10", { fetchFn: async () => { c2++; return { ok: true, status: 200, json: async () => ({ rtCode: 0, content: {} }) }; }, ...noSleep }), /格式已變更/);
+  assert.equal(c2, 1);
+}
 
 // 月份範圍
 assert.deepEqual(monthsToFetch([{ date: "2026-09-30" }], "2026-10-12"), ["2026-09", "2026-10"]);
@@ -35,7 +48,7 @@ assert.equal(taipeiToday(new Date("2026-10-12T17:00:00Z")), "2026-10-13");   // 
 // fetchLatest:衝突偵測(同期別、號碼不同)
 {
   const existing = [{ period: "115000001", date: "2026-10-01", numbers: [1, 2, 3, 4, 5] }, { period: "115000002", date: "2026-10-02", numbers: [1, 2, 3, 4, 5] }];
-  const r = await fetchLatest(g539, existing, { today: "2026-10-05", delayMs: 0, fetchFn: reply([rec(115000001, "2026-10-01", [1, 2, 3, 4, 5]), rec(115000002, "2026-10-02", [1, 2, 3, 4, 6]), rec(115000003, "2026-10-03", [7, 8, 9, 10, 11])]) });
+  const r = await fetchLatest(g539, existing, { today: "2026-10-05", delayMs: 0, ...noSleep, fetchFn: reply([rec(115000001, "2026-10-01", [1, 2, 3, 4, 5]), rec(115000002, "2026-10-02", [1, 2, 3, 4, 6]), rec(115000003, "2026-10-03", [7, 8, 9, 10, 11])]) });
   assert.equal(r.draws.length, 3); assert.deepEqual(r.conflicts.map(c => c.period), ["115000002"]);
 }
 console.log("official tests passed");

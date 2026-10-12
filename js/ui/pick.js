@@ -5,6 +5,7 @@ import { applyScope } from "../engine/stats/index.js";
 import { scopeOf, statsState } from "./stats.js";
 import { SOURCES, makeRng, generateByRecipe, pickSecond, expandTickets, ticketCount } from "../engine/recipes/index.js";
 import { STRATEGIES, strategyById, generateSets, coverTickets } from "../engine/recipes/strategies.js";
+import { PRESETS } from "../core/presets.js";
 import { loadRecipes, saveRecipe, deleteRecipe, exportRecipes, importRecipes } from "../data/recipes.js";
 
 const fmt = n => String(n).padStart(2, "0");
@@ -29,6 +30,7 @@ export async function renderPick(root, game, ui) {
   const body = h("div", { class: "view" });
   root.replaceChildren(body);
   const rerender = () => renderPick(root, game, ui);
+  const rerenderKeepResult = () => renderPick(root, game, ui);   // st.results 存在 ui 狀態,重畫後仍會顯示
   const clear = () => { st.results = []; st.cover = null; st.error = ""; };
 
   const need = game.count + st.add - st.fixed.length;
@@ -56,6 +58,26 @@ export async function renderPick(root, game, ui) {
       `每組主號 ${game.count + st.add} 個`, game.extra?.pickable && `,${game.extra.label} ${secondCount} 個`,
       h("b", {}, ` → ${tickets} 注,約 NT$ ${(tickets * game.price).toLocaleString()}`),
       h("div", { class: "hint" }, `每注 NT$ ${game.price}。包牌只是把號碼組合買齊,不會提高單注的中獎機率。`)));
+
+  // ---- 回測組合(一鍵套用) ----
+  const signed = x => (x >= 0 ? "+" : "") + x.toFixed(3);
+  const applyPreset = p => {
+    // 固定號碼與「增加號碼」會改變需要的名額:依序截斷條目,不足的由隨機補滿
+    let remaining = Math.max(0, game.count + st.add - st.fixed.length);
+    st.items = [];
+    for (const it of p.items) { const count = Math.min(it.count, remaining); if (count > 0) { st.items.push({ ...structuredClone(it), count }); remaining -= count; } }
+    st.tieBreak = "random"; st.fillRandom = true; st.name = p.name;
+    run(p.name, (r, f) => generateByRecipe(game, draws, { items: st.items, tieBreak: "random", fillRandom: true, fixed: f, add: st.add }, r));
+    rerenderKeepResult();
+  };
+  const presets = PRESETS[game.name] ?? [];
+  const presetCard = presets.length ? h("div", { class: "card" },
+    h("h3", {}, "回測組合(一鍵套用)"),
+    h("div", { class: "hint", style: "margin:-6px 0 10px" }, "從上百種配方組合中,用「前半段歷史」挑出回測平均命中最高的幾個,再用「後半段歷史」重新驗證。按下去會套用到下方配方並立刻產生號碼。"),
+    ...presets.map(p => h("div", { class: "preset" },
+      h("button", { class: "btn sm mint", onclick: () => applyPreset(p) }, p.name),
+      h("div", { class: "hint" }, `訓練段 ${signed(p.train.diff)} → 測試段 ${signed(p.test.diff)}(p=${p.test.p.toFixed(2)}),單位:平均命中個數 − 隨機理論值`))),
+    h("div", { class: "report" }, "怎麼看:訓練段的好成績是「事後挑出來的」;沒參與挑選的測試段通常會回到 0 附近,代表這些組合沒有可靠的優勢,按鈕只是方便你快速套用,不是更準的組合。")) : null;
 
   // ---- 配方 ----
   const scopeSel = it => h("select", { class: "input sel", onchange: e => {
@@ -191,5 +213,5 @@ export async function renderPick(root, game, ui) {
   }
   showResults();
 
-  body.append(h("div", { class: "label pink" }, `${game.name} 選號`), settings, recipeCard, strategies, options, resultBox, savedCard);
+  body.append(h("div", { class: "label pink" }, `${game.name} 選號`), settings, ...(presetCard ? [presetCard] : []), recipeCard, strategies, options, resultBox, savedCard);
 }

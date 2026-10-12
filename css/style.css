@@ -99,3 +99,6 @@ details summary { cursor: pointer; font-weight: 700; margin-top: 10px; }
 /* 進度條 */
 .pbar { height: 14px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; overflow: hidden; margin-top: 10px; }
 .pbar i { display: block; height: 100%; width: 0; background: var(--pink); transition: width .15s; }
+
+.preset { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.preset .hint { margin-top: 0; flex: 1; min-width: 180px; }

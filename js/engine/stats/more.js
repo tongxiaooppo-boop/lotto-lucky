@@ -158,3 +158,64 @@ export function salesTrend(draws) {
   const top = draws.filter(d => d.sales != null).sort((a, b) => b.sales - a.sales).slice(0, 10);
   return { rows, top };
 }
+
+// ── 以下三項由 808888-main 的 indicators.ts/util.ts 擷取改寫(見 book/analysis/) ──
+
+// 冷熱 z-score:z = (次數 − 期望) / 標準差,|z| > 1 才算熱/冷。「沒有號碼超標」也是合法答案。
+export function hotColdZ(series, min, max, pick, window = 30) {
+  if (!(max > min) || !(pick > 0) || pick > max - min + 1) throw new RangeError("號碼範圍或 pick 不合法");
+  const win = window > 0 && window < series.length ? series.slice(-window) : series;
+  const W = win.length;
+  const p = pick / (max - min + 1);
+  const expected = W * p;
+  const sd = Math.sqrt(W * p * (1 - p)) || 1;
+  const count = new Map();
+  for (const draw of win) for (const v of draw) count.set(v, (count.get(v) ?? 0) + 1);
+  const rows = [];
+  for (let v = min; v <= max; v++) {
+    const c = count.get(v) ?? 0;
+    const z = (c - expected) / sd;
+    rows.push({ number: v, count: c, expected, z, tag: z > 1 ? "hot" : z < -1 ? "cold" : "normal" });
+  }
+  return rows;
+}
+
+// 拖牌:號碼 a 在第 t 期開出後,b 在第 t+1 期跟著開出的條件機率。lift = 條件機率 ÷ 隨機期望(≈1 代表無關)。
+export function dragFor(series, min, max, a, pick, topK = 6) {
+  if (!Number.isInteger(a) || a < min || a > max) throw new RangeError("a 不在號碼範圍內");
+  const expectedRate = pick / (max - min + 1);
+  let aCount = 0;
+  const bCount = new Map();
+  for (let t = 0; t < series.length - 1; t++) {
+    if (!series[t].includes(a)) continue;
+    aCount++;
+    for (const b of series[t + 1]) bCount.set(b, (bCount.get(b) ?? 0) + 1);
+  }
+  const top = [];
+  for (const [b, count] of bCount) {
+    if (b === a) continue;
+    const rate = count / aCount;
+    top.push({ b, count, rate, lift: rate / expectedRate });
+  }
+  top.sort((x, y) => y.count - x.count || x.b - y.b);
+  return { a, aCount, expectedRate, top: top.slice(0, topK) };
+}
+
+// AC 值(算術複雜度)= 兩兩差值的不同值個數 − (號碼數 − 1);質數個數(1 不是質數)。
+export function acValue(nums) {
+  if (nums.length < 2) throw new RangeError("至少需要 2 個號碼");
+  const diffs = new Set();
+  for (let i = 0; i < nums.length; i++) for (let j = i + 1; j < nums.length; j++) diffs.add(Math.abs(nums[i] - nums[j]));
+  return diffs.size - (nums.length - 1);
+}
+const isPrime = n => { if (!Number.isInteger(n) || n < 2) return false; for (let i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; };
+export const primeCount = nums => nums.filter(isPrime).length;
+
+export function patternFeatures(series) {
+  const dist = (vals) => {
+    const m = new Map();
+    for (const v of vals) m.set(v, (m.get(v) ?? 0) + 1);
+    return [...m].sort((a, b) => a[0] - b[0]).map(([k, count]) => ({ k, count, ratio: count / vals.length }));
+  };
+  return { ac: dist(series.map(acValue)), primes: dist(series.map(primeCount)) };
+}

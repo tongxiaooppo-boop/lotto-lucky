@@ -4,11 +4,21 @@ import * as M from "../engine/stats/more.js";
 import { hypergeom } from "../engine/stats/index.js";
 import { pct, ball, bar } from "./widgets.js";
 
-export const MORE_SECTIONS = ["冷熱", "隔期", "鄰連號", "區段", "尾數", "跨度", "配對", "重現", "星期月份", "銷售"];
+export const MORE_SECTIONS = ["冷熱", "隔期", "鄰連號", "區段", "尾數", "跨度", "配對", "重現", "星期月份", "銷售", "拖牌", "型態"];
 
 const distTable = (head, rows, label, extra) => h("table", { class: "tbl" },
   h("thead", {}, h("tr", {}, [head, "期數", "比例", ...(extra ? [extra.head] : [])].map(t => h("th", {}, t)))),
   h("tbody", {}, rows.map(r => h("tr", {}, h("td", {}, label(r)), h("td", {}, r.count), h("td", {}, pct(r.ratio), bar(r.ratio)), ...(extra ? [h("td", {}, extra.cell(r))] : [])))));
+
+// 冷熱 z-score:|z| > 1 才算熱/冷(擷取自 808888 的 hotCold)。
+function zCard(card, game, mainSer, n) {
+  const rows = M.hotColdZ(mainSer, game.min, game.max, game.count, n);
+  const hot = rows.filter(r => r.tag === "hot"), cold = rows.filter(r => r.tag === "cold");
+  const group = (rs, cls) => h("div", { class: "balls" }, rs.length ? rs.map(r => h("span", { class: "pickball" }, ball(r.number, cls), h("small", {}, `z=${r.z.toFixed(1)}`))) : "沒有");
+  return card("冷熱 z-score", h("div", { class: "hint" }, `近 ${Math.min(n, mainSer.length)} 期,每號碼期望 ${rows[0].expected.toFixed(1)} 次。z = (次數 − 期望) ÷ 標準差,|z| > 1 才算顯著偏熱/偏冷;完全隨機時也會有約三成的號碼落在這個範圍,所以多半只是波動。`),
+    h("div", { class: "field" }, h("label", {}, `偏熱(${hot.length})`), group(hot, "rep")),
+    h("div", { class: "field" }, h("label", {}, `偏冷(${cold.length})`), group(cold, "sp")));
+}
 
 export function renderMore(section, { game, draws, mainSer, sc, rerender, card }) {
   const range = game.max - game.min + 1;
@@ -18,7 +28,8 @@ export function renderMore(section, { game, draws, mainSer, sc, rerender, card }
     const grp = (title, rows, cls) => h("div", { class: "field" }, h("label", {}, `${title}(${rows.length} 個)`),
       h("div", { class: "balls" }, rows.map(r => h("span", { class: "pickball" }, ball(r.number, cls), h("small", {}, `${r.count} 次`)))));
     return [card("冷熱分群(S7)", h("div", { class: "row" }, "依近", nIn, "期次數分三組"), grp("熱號", g.hot, "rep"), grp("溫號", g.warm, ""), grp("冷號", g.cold, "sp"),
-      h("div", { class: "hint" }, "依次數排名各分三分之一,只是描述近期分布,不代表接下來的走勢。"))];
+      h("div", { class: "hint" }, "依次數排名各分三分之一,只是描述近期分布,不代表接下來的走勢。")),
+      zCard(card, game, mainSer, sc.heatN ?? 30)];
   }
   if (section === "隔期") {
     return [card("隔期號(S9)", h("div", { class: "hint" }, "與前 2、3 期重複的個數分布(隔 1 期即「重號」)。理論值為完全隨機時的機率。"),
@@ -104,6 +115,21 @@ export function renderMore(section, { game, draws, mainSer, sc, rerender, card }
           h("tbody", {}, t.rows.map(r => h("tr", {}, h("td", {}, r.year), h("td", {}, r.draws), h("td", {}, Math.round(r.avgSales).toLocaleString(), bar(r.avgSales, maxS)), h("td", {}, Math.round(r.avgPrize).toLocaleString()))))) : "此範圍沒有銷售資料"),
       card("單期銷售額最高的 10 期", h("table", { class: "tbl" }, h("thead", {}, h("tr", {}, ["期別", "日期", "銷售額", "總獎金"].map(x => h("th", {}, x)))),
         h("tbody", {}, t.top.map(d => h("tr", {}, h("td", {}, d.period), h("td", {}, d.date), h("td", {}, d.sales.toLocaleString()), h("td", {}, (d.prize ?? 0).toLocaleString()))))))];
+  }
+  if (section === "拖牌") {
+    const sel = h("select", { class: "input sel", onchange: e => { sc.dragA = +e.target.value; rerender(); } },
+      Array.from({ length: game.max - game.min + 1 }, (_, i) => game.min + i).map(v => h("option", { value: v, selected: (sc.dragA ?? game.min) === v }, String(v).padStart(2, "0"))));
+    const r = M.dragFor(mainSer, game.min, game.max, sc.dragA ?? game.min, game.count, 8);
+    return [card("拖牌(跨期轉移)", h("div", { class: "hint" }, "號碼 a 在某一期開出後,下一期哪些號碼跟著開出。lift = 條件機率 ÷ 隨機期望,接近 1 代表兩者無關。多看幾個 a 就會發現 lift 都在 1 附近上下波動,這正是「沒有預測力」的樣子。"),
+      h("div", { class: "row" }, "號碼 a:", sel, h("span", {}, `開出過 ${r.aCount} 次,隨機期望 ${pct(r.expectedRate)}`)),
+      h("table", { class: "tbl", style: "margin-top:10px" }, h("thead", {}, h("tr", {}, ["下一期出現", "次數", "條件機率", "lift"].map(t => h("th", {}, t)))),
+        h("tbody", {}, r.top.map(x => h("tr", {}, h("td", {}, ball(x.b)), h("td", {}, x.count), h("td", {}, pct(x.rate), bar(x.rate, r.expectedRate * 1.6)), h("td", {}, x.lift.toFixed(2)))))))];
+  }
+  if (section === "型態") {
+    const pf = M.patternFeatures(mainSer);
+    return [
+      card("AC 值(算術複雜度)", h("div", { class: "hint" }, "AC = 號碼兩兩差值的「不同值個數」−(號碼數 − 1)。越大代表號碼間距越不規律;全部等差的組合 AC 最小。"), distTable("AC 值", pf.ac, r => r.k)),
+      card("質數個數", h("div", { class: "hint" }, "一期開出幾個質數(1 不算)。"), distTable("質數個數", pf.primes, r => r.k))];
   }
   return [card("未知區塊", section)];
 }
