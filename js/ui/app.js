@@ -11,6 +11,13 @@ const ui = { game: GAMES["今彩539"], tab: "開獎" };
 try { const g = localStorage.getItem("lotto.game"); if (GAMES[g]) ui.game = GAMES[g]; } catch {}
 
 const view = document.getElementById("view");
+// 手機版:任何表格寬度超過畫面時,在表格自己的容器內橫向捲動,不撐開整個頁面。
+const wrapTables = () => view.querySelectorAll("table:not(.wrapped)").forEach(t => {
+  if (t.parentElement.classList.contains("table-wrap")) { t.classList.add("wrapped"); return; }
+  const w = h("div", { class: "table-wrap" });
+  t.classList.add("wrapped"); t.replaceWith(w); w.append(t);
+});
+new MutationObserver(wrapTables).observe(view, { childList: true, subtree: true });
 
 function renderChrome() {
   document.getElementById("games").replaceChildren(...Object.values(GAMES).map(g =>

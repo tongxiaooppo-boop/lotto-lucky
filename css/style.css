@@ -29,7 +29,11 @@ body {
 .chip.pink.on { background: var(--pink); color: #fff; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
-.games { display: flex; gap: 8px; flex-wrap: wrap; }
+.games { display: flex; border: var(--border); border-radius: 12px; overflow: hidden; background: #fff; box-shadow: var(--shadow); }
+.games .chip { border: 0; border-radius: 0; background: #fff; padding: 9px 14px; font-weight: 900; transform: none; box-shadow: none; }
+.games .chip + .chip { border-left: var(--border); }
+.games .chip.on { background: var(--ink); color: var(--yellow); transform: none; box-shadow: none; }
+.topbar { padding-bottom: 14px; border-bottom: 3px dashed var(--ink); }
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .tab { font-family: inherit; font-weight: 900; font-size: 16px; padding: 7px 22px; border: var(--border); border-radius: 999px; background: #fff; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
 .tab.on { background: var(--yellow); }
@@ -67,7 +71,7 @@ body {
 #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 9; }
 .toast { background: var(--ink); color: var(--paper); font-weight: 700; padding: 11px 18px; border-radius: 12px; margin-top: 6px; }
 .toast.err { background: var(--pink); color: #fff; }
-@media (max-width: 480px) { .ball { width: 32px; height: 32px; font-size: 14px; } .brand b { font-size: 19px; } .draw .meta { min-width: 100%; } }
+@media (max-width: 480px) { .ball { width: 32px; height: 32px; font-size: 14px; } .brand b { font-size: 19px; } .games .chip { padding: 8px 11px; font-size: 13px; } .draw .meta { min-width: 100%; } }
 
 /* 統計 */
 .table-wrap { overflow-x: auto; }
