@@ -9,7 +9,8 @@
 
 ## 開發
 - 驗證資料:`node tools/check_data.mjs`
-- 本機預覽:在專案根目錄啟動任一靜態伺服器(如 `python -m http.server`)。
+- 本機執行:雙擊 `start.bat`(或 `python -m http.server 8000`),開 http://localhost:8000
+- 引擎測試:`node tools/test_engine.mjs`
 
 ## 授權
 待定(見 PRD 第 10.5 節)。

@@ -2,14 +2,25 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>樂透統計與選號工具</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎱%3C/text%3E%3C/svg%3E">
 </head>
 <body>
-<header><h1>樂透統計與選號工具</h1></header>
-<nav id="tabs"><button>開獎</button><button>統計</button><button>選號</button><button>回測</button><button>說明</button></nav>
-<main><p>建置中(M0 骨架)。</p></main>
-<footer class="disclaimer">樂透每期為獨立隨機事件,冷熱、遺漏、連莊等統計對下一期無預測力。本工具僅供描述歷史與娛樂,不保證提高中獎機率。</footer>
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><b>樂透工具</b><small>統計・選號</small></div>
+    <div class="games" id="games"></div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <main class="view" id="view"><div class="card">載入中…</div></main>
+  <p class="disclaimer">樂透每期為獨立隨機事件,冷熱、遺漏、連莊等統計對下一期無預測力。<br>本工具僅供描述歷史與娛樂,不保證提高中獎機率。<br>開獎資料出處:台灣彩券官網「歷史開獎號碼下載」。</p>
+</div>
+<div id="toast"></div>
+<script type="module" src="js/ui/app.js"></script>
 </body>
 </html>
