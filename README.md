@@ -1,5 +1,7 @@
 # 樂透統計與選號工具
 
+線上版:<https://tongxiaooppo-boop.github.io/lotto-lucky/>
+
 今彩539、大樂透、威力彩的開獎查詢、統計分析與依統計組合選號(純前端,無需 build)。需求見 [docs/PRD.md](docs/PRD.md)。
 
 > 樂透每期為獨立隨機事件,統計對下一期無預測力。本工具僅供娛樂與描述歷史,不保證提高中獎機率。
@@ -18,4 +20,4 @@
 - 測試:`node tools/test_engine.mjs`、`test_stats`、`test_stats_more`、`test_recipes`、`test_strategies`、`test_backtest`、`test_official`(皆在 `tools/`,不需連網)
 
 ## 授權
-待定(見 PRD 第 10.5 節)。
+[MIT](LICENSE)。開獎資料版權屬台灣彩券,僅整理自官網公開資料,詳見「資料出處」。

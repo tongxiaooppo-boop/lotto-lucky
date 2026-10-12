@@ -10,7 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: 只發布網站需要的檔案
+        run: |
+          mkdir _site
+          cp -r index.html css js data _site/
       - uses: actions/upload-pages-artifact@v3
-        with: { path: . }
+        with: { path: _site }
       - id: d
         uses: actions/deploy-pages@v4
