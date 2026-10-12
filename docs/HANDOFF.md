@@ -1,6 +1,6 @@
 # 樂透工具 · 交接說明
 
-> 更新:2026-10-12　最後 commit:`33dc8cf`　讀完這份就能接手,不需要看對話紀錄。
+> 更新:2026-10-12　程式最後 commit:`d424ee5`(之後只有文件)　讀完這份就能接手,不需要看對話紀錄。
 
 ## 1. 現況
 - **線上網站**:https://tongxiaooppo-boop.github.io/lotto-lucky/
@@ -68,7 +68,7 @@ CI(`check.yml`)在每次 push 跑資料驗證與上述測試。UI 沒有自動�
 ## 6. 未完成 / 待決
 **未做**
 - 第二區/特別號沒有均衡型、冷熱混合等多號策略(只有 1~數個號碼,不適用);已有統計來源 + 兩種加權隨機。
-- 沒有在真的手機、Safari、Firefox 上驗證過畫面(只用電腦版 Chrome 無頭模式 480px 寬截圖)。
+- 沒有在真的手機、Safari、Firefox 上驗證過畫面(只用電腦版 Chrome 無頭模式 375~480px 寬;已逐頁量過沒有橫向超出,統計頁表格改為各自橫向捲動)。
 - 自動更新**「有新資料時」自動 commit 並重新發布**那一段沒驗證過(只驗證到「沒有新資料」)。下一次有新開獎後去 Actions 頁面確認。
 - 官網 CSV 與 API 的**使用條款未確認**。API 格式改版時抓取會失敗,手動輸入與 CSV 匯入是備援。
 
@@ -90,10 +90,12 @@ CI(`check.yml`)在每次 push 跑資料驗證與上述測試。UI 沒有自動�
 - **Bash 工具遇到很長的多重 heredoc 指令會整段解析失敗而什麼都沒執行**:建立檔案請用 Write 工具,Bash 只放短指令。
 - 中文檔名(`今彩539.json` 等)在 Windows 終端輸出會亂碼,是顯示問題不是資料問題;用 node/python 讀寫(UTF-8)即可。
 - `history/` 內 `*.zip` 被 `.gitignore` 排除;`book/` 也被排除(內含他人 repo)。
-- 重新產生回測組合:`node tools/preset_search.mjs`(539 約 4~5 分鐘)。
+- 重新產生回測組合:`node tools/preset_search.mjs`(539 約 4~5 分鐘)、`node tools/preset_search_extra.mjs`(數秒)。
+- 一鍵策略排名(選號頁依回測排序)是**靜態檔** `js/core/strategy_rank.js`,**刻意不隨資料自動重算**(每次重算名次都會變、會讓自動更新多出無意義 commit);要更新手動跑 `node tools/strategy_rank.mjs`。
+- UI 驗證踩坑:改完 JS 一定要在瀏覽器實際載入一次(曾有字串斷行造成整站卡在「載入中」,`node --check` 沒抓到);無頭 Chrome 要用全新 user-data-dir 才不會吃到舊快取。
 - 本機 8000 埠的預覽伺服器可能還在背景執行(`start.bat` 或 `python -m http.server 8000`)。
 
 ## 9. 接手後建議的第一步
-1. 開線上網站,用手機看一遍四個分頁的版面(最大的未驗證風險)。
+1. 開線上網站,用真手機看一遍四個分頁的版面(最大的未驗證風險)。
 2. 下一個開獎日後,到 repo 的 Actions 頁面確認 `update-data` 是否成功 commit 並重新發布。
 3. 決定要不要補 §6 的「未做」項目。
