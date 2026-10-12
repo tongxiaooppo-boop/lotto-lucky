@@ -3,18 +3,17 @@ import { h, toast, download } from "./dom.js";
 import { getDraws } from "../data/store.js";
 import { applyScope } from "../engine/stats/index.js";
 import { scopeOf, statsState } from "./stats.js";
-import { SOURCES, makeRng, generateByRecipe, pickSecond, expandTickets, ticketCount } from "../engine/recipes/index.js";
+import { SOURCES, makeRng, generateByRecipe, pickExtra, expandTickets, ticketCount } from "../engine/recipes/index.js";
 import { STRATEGIES, strategyById, generateSets, coverTickets } from "../engine/recipes/strategies.js";
 import { PRESETS } from "../core/presets.js";
 import { loadRecipes, saveRecipe, deleteRecipe, exportRecipes, importRecipes } from "../data/recipes.js";
 
 const fmt = n => String(n).padStart(2, "0");
-const SECOND_MODES = [["random", "隨機 1 個"], ["hot", "最熱 1 個"], ["cold", "最冷 1 個"], ["all", "全部(包全)"]];
 const MAX_SHOWN = 60;
 
 function defaultState(game) {
   return {
-    add: 0, fixed: [], second: "random", tieBreak: "random", fillRandom: false, seed: "",
+    add: 0, fixed: [], extraSource: "random", extraK: 1, extraN: 10, tieBreak: "random", fillRandom: false, seed: "",
     sets: 1, distinct: true, fSum: false, fParity: false, coverN: 5, name: "",
     results: [], cover: null, error: "",
     items: game.count === 5
@@ -35,7 +34,8 @@ export async function renderPick(root, game, ui) {
 
   const need = game.count + st.add - st.fixed.length;
   const have = st.items.reduce((a, i) => a + i.count, 0);
-  const secondCount = game.extra?.pickable ? (st.second === "all" ? game.extra.max - game.extra.min + 1 : 1) : 1;
+  const extraRange = game.extra ? game.extra.max - game.extra.min + 1 : 0;
+  const secondCount = game.extra?.pickable ? Math.min(st.extraK, extraRange) : 1;
   const tickets = ticketCount(game, game.count + st.add, secondCount);
 
   // ---- 號碼設定 ----
@@ -50,8 +50,14 @@ export async function renderPick(root, game, ui) {
   const settings = h("div", { class: "card" },
     h("h3", {}, "號碼設定"),
     h("div", { class: "field" }, h("label", {}, `增加號碼(包牌):每注 ${game.count} 個,多選幾個就把所有組合都買`), h("div", { class: "row" }, addChips)),
-    game.extra?.pickable && h("div", { class: "field" }, h("label", {}, `${game.extra.label}(${game.extra.min}-${game.extra.max})`),
-      h("div", { class: "row" }, SECOND_MODES.map(([m, t]) => h("button", { class: "chip pink" + (st.second === m ? " on" : ""), onclick: () => { st.second = m; clear(); rerender(); } }, t)))),
+    game.extra && h("div", { class: "field" },
+      h("label", {}, game.extra.pickable ? `${game.extra.label}(${game.extra.min}-${game.extra.max}):選法與個數` : `${game.extra.label}參考(${game.extra.min}-${game.extra.max}):投注時不用選,僅供參考`),
+      h("div", { class: "row" },
+        h("select", { class: "input sel", onchange: e => { st.extraSource = e.target.value; clear(); rerender(); } }, SOURCES.map(s => h("option", { value: s.id, selected: s.id === st.extraSource }, s.label))),
+        SOURCES.find(s => s.id === st.extraSource)?.needsN && h("span", { class: "row", style: "gap:4px" }, "近", h("input", { class: "input num", type: "number", min: 1, value: st.extraN, onchange: e => { st.extraN = Math.max(1, Math.trunc(+e.target.value) || 10); } }), "期")),
+      game.extra.pickable && h("div", { class: "row", style: "margin-top:6px" }, "個數:",
+        [1, 2, 3].map(k => h("button", { class: "chip pink" + (st.extraK === k ? " on" : ""), onclick: () => { st.extraK = k; clear(); rerender(); } }, String(k))),
+        h("button", { class: "chip pink" + (st.extraK >= extraRange ? " on" : ""), onclick: () => { st.extraK = extraRange; clear(); rerender(); } }, `全部(${extraRange})`))),
     h("div", { class: "field" }, h("label", {}, `固定號碼(想一定要有的號碼,${st.fixed.length} 個)`), fixedGrid,
       st.fixed.length > 0 && h("button", { class: "btn sm", style: "margin-top:8px", onclick: () => { st.fixed = []; rerender(); } }, "清除固定號碼")),
     h("div", { class: "report" },
@@ -176,6 +182,7 @@ export async function renderPick(root, game, ui) {
           h("h3", {}, st.results.length > 1 ? `第 ${i + 1} 組(${r.label})` : `結果:${r.label}`),
           h("div", { class: "pool" }, r.picks.map(p => h("div", { class: "pickball" }, h("span", { class: "ball" }, fmt(p.number)), h("small", {}, p.source)))),
           r.seconds && h("div", { class: "row", style: "margin-top:10px" }, `${game.extra.label}:`, r.seconds.map(v => h("span", { class: "ball sp" }, fmt(v)))),
+          r.reference && h("div", { class: "row", style: "margin-top:10px" }, `${game.extra.label}參考(不用投注):`, r.reference.map(v => h("span", { class: "ball sp" }, fmt(v)))),
           h("div", { class: "report" }, h("b", {}, `${r.tickets.length} 注,NT$ ${(r.tickets.length * game.price).toLocaleString()}`), r.tickets.length > 1 && "(包牌:所有組合都買)", h("div", { class: "hint" }, `種子 ${r.seed}(填入可重現)`)),
           r.tickets.length > 1 && h("details", {}, h("summary", {}, `查看各注(${r.tickets.length})`),
             h("div", { class: "tickets" }, shown.map(t => h("div", {}, t.numbers.map(fmt).join(" "), t.special != null ? `  +  ${fmt(t.special)}` : ""))),
@@ -204,8 +211,9 @@ export async function renderPick(root, game, ui) {
       const sets = generateSets(game, draws, r => make(r, st.fixed), rng, { sets: st.sets, distinct: st.distinct, filter });
       st.results = sets.map((picks, i) => {
         const sorted = [...picks].sort((a, b) => a.number - b.number);
-        const seconds = game.extra?.pickable ? pickSecond(game, draws, st.second, rng) : null;
-        return { label, picks: sorted, seconds, seed: base, tickets: expandTickets(game, sorted.map(p => p.number), seconds) };
+        const extra = game.extra ? pickExtra(game, draws, { source: st.extraSource, k: game.extra.pickable ? st.extraK : 1, n: st.extraN }, rng) : null;
+        const seconds = game.extra?.pickable ? extra : null;
+        return { label, picks: sorted, seconds, reference: game.extra && !game.extra.pickable ? extra : null, seed: base, tickets: expandTickets(game, sorted.map(p => p.number), seconds) };
       });
     } catch (e) { st.results = []; st.error = e.message; toast(e.message, true); }
     showResults();

@@ -152,15 +152,34 @@ export function balanced(spec, draws, fixed, add, rng) {
   return picks;
 }
 
-// 威力彩第二區:random 1 個 / hot 最多次 / cold 最少次 / all 全部
+// 特別號/第二區的「視圖」:把每期的 special 當成一個只開 1 個號碼的遊戲,就能重用所有統計來源與配方。
+export function extraView(spec, draws, k = 1) {
+  return {
+    spec2: { ...spec, min: spec.extra.min, max: spec.extra.max, count: k },
+    draws2: draws.map(d => ({ ...d, numbers: [d.special] })),
+  };
+}
+
+// 依統計來源選 k 個特別號/第二區。opts: {source="random", k=1, n(近 N 期熱號用), tieBreak="random"}。
+// k 達到全部號碼數時直接回傳全部(包全)。
+export function pickExtra(spec, draws, opts, rng) {
+  const { source = "random", k = 1, n, tieBreak = "random" } = opts ?? {};
+  const range = spec.extra.max - spec.extra.min + 1;
+  if (!Number.isInteger(k) || k < 1) throw new RangeError("k 必須是 >= 1 的整數");
+  if (k >= range) return Array.from({ length: range }, (_, i) => spec.extra.min + i);
+  const { spec2, draws2 } = extraView(spec, draws, k);
+  const items = [{ source, count: k, ...(n ? { n } : {}) }];
+  return generateByRecipe(spec2, draws2, { items, tieBreak, fillRandom: true }, rng).map(p => p.number).sort((a, b) => a - b);
+}
+
+// 威力彩第二區(相容舊寫法):"random" / "hot"(最多次)/ "cold"(最少次)/ "all"(全部),或傳入 pickExtra 的選項物件。
 export function pickSecond(spec, draws, mode, rng) {
-  const all = Array.from({ length: spec.extra.max - spec.extra.min + 1 }, (_, i) => spec.extra.min + i);
-  if (mode === "all") return all;
-  if (mode === "random") return [all[Math.floor(rng() * all.length)]];
-  const rows = numberStats(extraSeries(draws), spec.extra.min, spec.extra.max, 1);
-  const tie = new Map(all.map(v => [v, rng()]));
-  const sorted = [...rows].sort((a, b) => (mode === "hot" ? b.count - a.count : a.count - b.count) || tie.get(a.number) - tie.get(b.number));
-  return [sorted[0].number];
+  if (typeof mode === "object" && mode) return pickExtra(spec, draws, mode, rng);
+  const range = spec.extra.max - spec.extra.min + 1;
+  if (mode === "all") return pickExtra(spec, draws, { k: range }, rng);
+  const source = { random: "random", hot: "most_drawn", cold: "least_drawn" }[mode];
+  if (!source) throw new Error(`未知的第二區模式:${mode}`);
+  return pickExtra(spec, draws, { source, k: 1 }, rng);
 }
 
 // 包牌展開:主號 pool 取 spec.count 個的所有組合,乘上第二區(威力彩)選項。

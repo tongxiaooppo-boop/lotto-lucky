@@ -71,4 +71,26 @@ for (const g of Object.values(GAMES)) {
     assert.ok(odd >= 1 && odd <= 4, `奇偶比極端 ${n}`);
   }
 }
+
+// 特別號/第二區的來源選號(視圖:每期只開 1 個號碼)。威力彩第二區 1~8,手算樣本:近 4 期第二區 = 3,3,5,3
+{
+  const sl = GAMES["威力彩"];
+  const hist = [3, 3, 5, 3].map((special, i) => ({ period: String(i), date: `2026-01-0${i + 1}`, numbers: [1, 2, 3, 4, 5, 6], special }));
+  const rng = R.makeRng(1);
+  assert.deepEqual(R.pickExtra(sl, hist, { source: "most_drawn", k: 1 }, rng), [3]);
+  assert.deepEqual(R.pickExtra(sl, hist, { source: "most_drawn", k: 2 }, rng).sort(), [3, 5]);
+  assert.deepEqual(R.pickExtra(sl, hist, { source: "current_streak", k: 1 }, rng), [3]);
+  assert.deepEqual(R.pickExtra(sl, hist, { source: "last_repeat", k: 1 }, rng), [3]);             // 上一期的第二區
+  assert.deepEqual(R.pickExtra(sl, hist, { source: "longest_gap", k: 1 }, rng).length, 1);
+  assert.deepEqual(R.pickExtra(sl, hist, { k: 8 }, rng), [1, 2, 3, 4, 5, 6, 7, 8]);                // k = 全部
+  assert.ok(R.pickExtra(sl, hist, { source: "least_drawn", k: 1 }, rng)[0] !== 3);
+  assert.ok(R.pickExtra(sl, hist, { source: "hot_n", k: 1, n: 2 }, rng).length === 1);
+  assert.deepEqual(R.pickSecond(sl, hist, "hot", rng), [3]);                                        // 舊寫法仍可用
+  assert.throws(() => R.pickExtra(sl, hist, { k: 0 }, rng), RangeError);
+  assert.throws(() => R.pickSecond(sl, hist, "bogus", rng), /未知/);
+  // 大樂透特別號(1~49)也能選
+  const g649 = GAMES["大樂透"];
+  const h2 = [7, 7, 9].map((special, i) => ({ period: String(i), date: `2026-01-0${i + 1}`, numbers: [1, 2, 3, 4, 5, 6], special }));
+  assert.deepEqual(R.pickExtra(g649, h2, { source: "most_drawn", k: 1 }, rng), [7]);
+}
 console.log("recipes tests passed");

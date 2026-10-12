@@ -1,6 +1,6 @@
 // 策略回測(F5.3):對每個測試期,只用「該期以前」的資料產生推薦,再與實際開獎比對。
 // 純函式;strategyFn(history, rng) → 主號陣列(history 為範圍內的開獎,舊→新)。
-import { makeRng, pickSecond } from "../recipes/index.js";
+import { makeRng, pickSecond, pickExtra, SOURCES } from "../recipes/index.js";
 import { hypergeom } from "../stats/index.js";
 import { STRATEGIES } from "../recipes/strategies.js";
 
@@ -95,4 +95,36 @@ export function compareAll(spec, draws, opts, onProgress) {
     onProgress?.((idx + 1) / STRATEGIES.length);
   });
   return rows.sort((a, b) => b.mean - a.mean);
+}
+
+// 特別號/第二區單獨回測:每期只用該期以前的資料,依統計來源選 k 個,看是否包含實際開出的特別號/第二區。
+// 隨機理論命中率 = k / 號碼數;以二項分布的常態近似做 z 檢定。
+export function backtestExtra(spec, draws, source, { k = 1, n, scopeN = null, testCount = 300, seed = 1 } = {}) {
+  if (!spec.extra) throw new Error(`${spec.name} 沒有特別號/第二區`);
+  const total = draws.length;
+  const start = Math.max(MIN_HISTORY, total - testCount);
+  const rng = makeRng(seed);
+  let hits = 0, tests = 0;
+  for (let i = start; i < total; i++) {
+    const hist = draws.slice(scopeN ? Math.max(0, i - scopeN) : 0, i);
+    const picks = pickExtra(spec, hist, { source, k, n }, rng);
+    if (picks.includes(draws[i].special)) hits++;
+    tests++;
+  }
+  const range = spec.extra.max - spec.extra.min + 1;
+  const p0 = Math.min(k, range) / range;
+  const rate = hits / tests;
+  const z = p0 >= 1 ? 0 : (rate - p0) / Math.sqrt(p0 * (1 - p0) / tests);
+  return { source, k, tests, hits, rate, expected: p0, z, p: p0 >= 1 ? 1 : normalP(z) };
+}
+
+// 各統計來源一次比較(含隨機),依命中率排序。
+export function compareExtra(spec, draws, opts, onProgress) {
+  const srcs = SOURCES;
+  const rows = srcs.map((s, i) => {
+    const r = backtestExtra(spec, draws, s.id, { ...opts, n: s.needsN ? 10 : undefined });
+    onProgress?.((i + 1) / srcs.length);
+    return { ...r, label: s.label };
+  });
+  return rows.sort((a, b) => b.rate - a.rate);
 }

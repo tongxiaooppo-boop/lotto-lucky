@@ -58,7 +58,7 @@ export async function renderBacktest(root, game, ui) {
       if (job.strategy === "recipe" && !job.recipe) throw new Error("請先到「選號」分頁設定配方");
       const res = await runJob(job, p => { fill.style.width = `${Math.round(p * 100)}%`; });
       msg.textContent = "";
-      out.replaceChildren(...(res.mode === "all" ? renderAll(res.rows) : renderOne(res.result, game)));
+      out.replaceChildren(...(res.mode === "extra" ? renderExtra(res.rows, game) : res.mode === "all" ? renderAll(res.rows) : renderOne(res.result, game)));
     } catch (e) { msg.textContent = e.message; msg.className = "hint bad"; }
     bar_.style.display = "none"; running = false;
   }
@@ -71,7 +71,8 @@ export async function renderBacktest(root, game, ui) {
       h("div", { class: "row" }, "測試最近", num("testCount", 10), "期;歷史窗口", num("scopeN", 10), "期;種子", h("input", { class: "input num", style: "width:96px", placeholder: "選填", value: st.seed, onchange: e => { st.seed = e.target.value.trim(); } })),
       h("div", { class: "row", style: "margin-top:12px" },
         h("button", { class: "btn yellow", onclick: () => go("one") }, "回測這個策略"),
-        h("button", { class: "btn mint", onclick: () => go("all") }, "全策略比較")),
+        h("button", { class: "btn mint", onclick: () => go("all") }, "全策略比較"),
+        game.extra && h("button", { class: "btn pink", onclick: () => go("extra") }, `${game.extra.label}來源比較`)),
       bar_, msg),
     out);
 }
@@ -103,4 +104,14 @@ function renderAll(rows) {
     h("tbody", {}, rows.map(r => h("tr", {}, h("td", {}, r.label), h("td", {}, r.mean.toFixed(3)), h("td", {}, (r.mean - r.expectedMean >= 0 ? "+" : "") + (r.mean - r.expectedMean).toFixed(3)),
       h("td", {}, r.p.toFixed(3), r.p < 0.05 && h("span", { class: "tag", style: "margin-left:6px" }, "<0.05")), h("td", {}, pct(r.anyPrizeRate)))))),
     h("div", { class: "report" }, `${rows.length} 個策略中有 ${sig} 個 p < 0.05。同時比較 ${rows.length} 個策略時,即使全部都等同隨機,平均也會有約 ${(rows.length * 0.05).toFixed(1)} 個「看起來顯著」,所以單看 p < 0.05 不能當作策略有效的證據。`))];
+}
+
+function renderExtra(rows, game) {
+  const sig = rows.filter(r => r.p < 0.05).length;
+  return [card(`${game.extra.label}:各統計來源比較(每期選 1 個,看是否命中開出的${game.extra.label})`, h("table", { class: "tbl" },
+    h("thead", {}, h("tr", {}, ["來源", "命中率", "隨機理論", "p 值"].map(t => h("th", {}, t)))),
+    h("tbody", {}, rows.map(r => h("tr", {}, h("td", {}, r.label), h("td", {}, `${pct(r.rate, 2)}(${r.hits}/${r.tests})`), h("td", {}, pct(r.expected, 2)),
+      h("td", {}, r.p.toFixed(3), r.p < 0.05 && h("span", { class: "tag", style: "margin-left:6px" }, "<0.05")))))),
+    h("div", { class: "report" }, `${rows.length} 個來源中有 ${sig} 個 p < 0.05。每期只選 1 個號碼,命中是低機率事件,樣本變異很大;同時比較 ${rows.length} 個來源時,約有 ${(rows.length * 0.05).toFixed(1)} 個會因偶然而「看起來顯著」,不能當作有效的證據。`),
+    !game.extra.pickable && h("div", { class: "hint" }, "大樂透的特別號是開獎附加號,投注時不用選,這裡只是比較哪種統計來源「猜」得比較準(結論多半是沒有差別)。"))];
 }

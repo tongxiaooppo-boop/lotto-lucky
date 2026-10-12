@@ -15,6 +15,8 @@ export function scopeOf(ui, game) {
   return sc.type === "range" ? { type: "range", from: sc.from, to: sc.to } : sc.type === "all" ? { type: "all" } : { type: "last_n", n: sc.n };
 }
 
+// 特別號/第二區也能看的統計(其餘如和值、跨度、配對對「單一號碼」沒有意義,只看主號)
+const EXTRA_OK = ["次數", "連莊", "遺漏", "近期", "重號", "檢定", "冷熱", "隔期", "拖牌", "奇偶大小", "區段", "尾數", "星期月份"];
 const CORE_SECTIONS = ["次數", "連莊", "遺漏", "近期", "重號", "和值", "奇偶大小", "檢定"];
 
 export async function renderStats(root, game, ui) {
@@ -44,7 +46,7 @@ export async function renderStats(root, game, ui) {
       : "此範圍內沒有資料。"));
 
   const secBar = h("div", { class: "row" }, [...CORE_SECTIONS, ...MORE_SECTIONS].map(s => h("button", { class: "chip mint" + (sc.section === s ? " on" : ""), onclick: () => { sc.section = s; rerender(); } }, s)));
-  const targetBar = game.extra && ["次數", "連莊", "遺漏"].includes(sc.section) && h("div", { class: "row" },
+  const targetBar = game.extra && EXTRA_OK.includes(sc.section) && h("div", { class: "row" },
     h("button", { class: "chip pink" + (sc.target === "main" ? " on" : ""), onclick: () => { sc.target = "main"; rerender(); } }, "主號"),
     h("button", { class: "chip pink" + (sc.target === "extra" ? " on" : ""), onclick: () => { sc.target = "extra"; rerender(); } }, game.extra.label));
 
@@ -53,11 +55,14 @@ export async function renderStats(root, game, ui) {
   if (!draws.length) return;
 
   const useExtra = Boolean(targetBar) && sc.target === "extra";
-  const series = useExtra ? S.extraSeries(draws) : S.mainSeries(draws);
-  const [min, max, pick] = useExtra ? [game.extra.min, game.extra.max, 1] : [game.min, game.max, game.count];
+  // 看特別號/第二區時,把它當成「每期只開 1 個號碼」的遊戲,重用同一套統計
+  const G = useExtra ? { ...game, min: game.extra.min, max: game.extra.max, count: 1 } : game;
+  const D = useExtra ? draws.map(d => ({ ...d, numbers: [d.special] })) : draws;
+  const mainSer = S.mainSeries(D);
+  const series = mainSer;
+  const [min, max, pick] = [G.min, G.max, G.count];
   const who = useExtra ? game.extra.label : "號碼";
   const card = (title, ...kids) => h("div", { class: "card white" }, h("h3", {}, title), ...kids);
-  const mainSer = S.mainSeries(draws);
 
   if (sc.section === "次數") {
     const rows = S.numberStats(series, min, max, pick).map(r => ({ ...r, diff: r.freq - r.expectedFreq }));
@@ -95,7 +100,7 @@ export async function renderStats(root, game, ui) {
   } else if (sc.section === "近期") {
     const nIn = h("input", { class: "input num", type: "number", min: 1, value: sc.recentN, onchange: e => { sc.recentN = Math.max(1, Math.trunc(+e.target.value) || 10); rerender(); } });
     const kIn = h("input", { class: "input num", type: "number", min: 1, value: sc.recentK, onchange: e => { sc.recentK = Math.max(1, Math.trunc(+e.target.value) || 3); rerender(); } });
-    const absent = S.absentInLast(mainSer, game.min, game.max, sc.recentN);
+    const absent = S.absentInLast(mainSer, G.min, G.max, sc.recentN);
     const hot = S.latestAndFrequent(mainSer, sc.recentN, sc.recentK);
     body.append(
       card("近期設定", h("div", { class: "row" }, "近", nIn, "期;S5 門檻 ≥", kIn, "次")),
@@ -104,15 +109,15 @@ export async function renderStats(root, game, ui) {
         h("div", { class: "balls" }, hot.length ? hot.map(x => h("span", { class: "row", style: "gap:4px" }, ball(x.number, "rep"), `×${x.times}`)) : "沒有符合的號碼"),
         h("div", { class: "hint" }, `最近一期:${draws.at(-1).period}(${draws.at(-1).date})。`)));
   } else if (sc.section === "重號") {
-    const dist = S.repeatDistribution(mainSer, game.count);
-    const range = game.max - game.min + 1;
+    const dist = S.repeatDistribution(mainSer, G.count);
+    const range = G.max - G.min + 1;
     body.append(card("重號統計(S8)",
       h("div", { class: "hint" }, "每期與上一期重複的號碼個數。理論值是「完全隨機」時的超幾何分布機率,可對照實際是否接近。"),
       h("table", { class: "tbl" },
         h("thead", {}, h("tr", {}, ["重複個數", "期數", "實際比例", "理論比例"].map(t => h("th", {}, t)))),
-        h("tbody", {}, dist.map(r => h("tr", {}, h("td", {}, r.k), h("td", {}, r.count), h("td", {}, pct(r.ratio), bar(r.ratio)), h("td", {}, pct(S.hypergeom(r.k, game.count, range)))))))));
+        h("tbody", {}, dist.map(r => h("tr", {}, h("td", {}, r.k), h("td", {}, r.count), h("td", {}, pct(r.ratio), bar(r.ratio)), h("td", {}, pct(S.hypergeom(r.k, G.count, range)))))))));
   } else if (sc.section === "和值") {
-    const sd = S.sumDistribution(mainSer, game.count <= 5 ? 10 : 20);
+    const sd = S.sumDistribution(mainSer, G.count <= 5 ? 10 : 20);
     const maxC = Math.max(...sd.bins.map(b => b.count));
     body.append(card("和值分布(S11)",
       h("div", { class: "row" }, [`平均 ${sd.mean.toFixed(1)}`, `標準差 ${sd.sd.toFixed(1)}`, `80% 的期數落在 ${sd.p10} ~ ${sd.p90}`, `範圍 ${sd.min} ~ ${sd.max}`].map(t => h("span", {}, t))),
@@ -120,18 +125,18 @@ export async function renderStats(root, game, ui) {
         h("thead", {}, h("tr", {}, ["和值區間", "期數", "比例"].map(t => h("th", {}, t)))),
         h("tbody", {}, sd.bins.map(b => h("tr", {}, h("td", {}, `${b.from}-${b.to}`), h("td", {}, b.count), h("td", {}, pct(b.count / sd.n), bar(b.count, maxC))))))));
   } else if (sc.section === "奇偶大小") {
-    const pz = S.parityAndSize(mainSer, game.min, game.max, game.count);
+    const pz = S.parityAndSize(mainSer, G.min, G.max, G.count);
     const t = (title, rows, label) => card(title, h("table", { class: "tbl" },
       h("thead", {}, h("tr", {}, [label, "期數", "比例"].map(x => h("th", {}, x)))),
       h("tbody", {}, rows.map(r => h("tr", {}, h("td", {}, label(r.k)), h("td", {}, r.count), h("td", {}, pct(r.ratio), bar(r.ratio)))))));
-    const oe = k => `${k} 奇 ${game.count - k} 偶`, bs = k => `${k} 大 ${game.count - k} 小`;
+    const oe = k => `${k} 奇 ${G.count - k} 偶`, bs = k => `${k} 大 ${G.count - k} 小`;
     body.append(
       card("奇偶比(S12)", h("table", { class: "tbl" }, h("thead", {}, h("tr", {}, ["奇偶比", "期數", "比例"].map(x => h("th", {}, x)))),
         h("tbody", {}, pz.odd.map(r => h("tr", {}, h("td", {}, oe(r.k)), h("td", {}, r.count), h("td", {}, pct(r.ratio), bar(r.ratio))))))),
       card("大小比(S12)", h("div", { class: "hint" }, `${pz.bigFrom} 以上為大。`), h("table", { class: "tbl" }, h("thead", {}, h("tr", {}, ["大小比", "期數", "比例"].map(x => h("th", {}, x)))),
         h("tbody", {}, pz.big.map(r => h("tr", {}, h("td", {}, bs(r.k)), h("td", {}, r.count), h("td", {}, pct(r.ratio), bar(r.ratio))))))));
   } else if (sc.section === "檢定") {
-    const rows = S.numberStats(mainSer, game.min, game.max, game.count);
+    const rows = S.numberStats(mainSer, G.min, G.max, G.count);
     const c = S.chiSquare(rows.map(r => r.count));
     const sig = c.p < 0.05;
     body.append(card("卡方檢定(S21)",
@@ -141,5 +146,5 @@ export async function renderStats(root, game, ui) {
         : `p ≥ 0.05:沒有證據顯示各號碼的出現次數偏離均勻分布,與「完全隨機」一致。所謂冷熱號只是隨機波動。`),
       h("div", { class: "hint" }, `檢驗虛無假設「每個號碼被開出的機率相同」。範圍內共 ${c.total} 個號碼次,每號碼期望 ${c.expected.toFixed(1)} 次。`)));
   }
-  else body.append(...renderMore(sc.section, { game, draws, mainSer, sc, rerender, card }));
+  else body.append(...renderMore(sc.section, { game: G, draws: D, mainSer, sc, rerender, card }));
 }

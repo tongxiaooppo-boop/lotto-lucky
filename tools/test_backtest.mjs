@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { GAMES } from "../js/core/games.js";
 import { makeRng } from "../js/engine/recipes/index.js";
-import { backtest, strategyFn, prizeTier, normalP, compareAll, MIN_HISTORY } from "../js/engine/backtest/index.js";
+import { backtest, backtestExtra, compareExtra, strategyFn, prizeTier, normalP, compareAll, MIN_HISTORY } from "../js/engine/backtest/index.js";
 
 const near = (a, b, e) => assert.ok(Math.abs(a - b) < e, `${a} != ${b}`);
 const load = g => JSON.parse(readFileSync(new URL(`../data/${g.name}.json`, import.meta.url), "utf-8"));
@@ -56,5 +56,23 @@ for (const game of Object.values(GAMES)) {
   const rows = compareAll(g, draws, { testCount: 200, scopeN: 300, seed: 3 });
   assert.ok(rows.length >= 10); assert.ok(rows.every((x, i) => !i || rows[i - 1].mean >= x.mean));
   console.log(`全策略比較 ${rows.length} 個 × 200 期:${(performance.now() - t).toFixed(0)}ms`);
+}
+
+// 特別號/第二區單獨回測:手算樣本 + 真實資料(純隨機命中率應貼近 1/號碼數)
+{
+  const sl = GAMES["威力彩"];
+  const fake = Array.from({ length: 60 }, (_, i) => ({ period: String(i), date: "2026-01-01", numbers: [1, 2, 3, 4, 5, 6], special: 3 }));   // 第二區永遠是 3
+  const r = backtestExtra(sl, fake, "most_drawn", { testCount: 20 });
+  assert.equal(r.tests, 20); assert.equal(r.hits, 20); assert.equal(r.rate, 1); near(r.expected, 1 / 8, 1e-12); assert.ok(r.p < 1e-6);
+  assert.equal(backtestExtra(sl, fake, "most_drawn", { testCount: 20, k: 8 }).p, 1);                // 全包必中,與理論相同 → 無差異
+  assert.throws(() => backtestExtra(GAMES["今彩539"], fake, "random"), /沒有特別號/);
+  for (const g of [GAMES["大樂透"], sl]) {
+    const d = load(g);
+    const rr = backtestExtra(g, d, "random", { testCount: 1500, seed: 5 });
+    assert.ok(Math.abs(rr.z) < 4, `${g.name} 特別號純隨機 z=${rr.z}`);
+    const rows = compareExtra(g, d, { testCount: 300, scopeN: 100, seed: 2 });
+    assert.ok(rows.length >= 8 && rows.every((x, i) => !i || rows[i - 1].rate >= x.rate));
+    console.log(`${g.name} 特別號/第二區:純隨機命中率 ${(rr.rate * 100).toFixed(2)}%(理論 ${(rr.expected * 100).toFixed(2)}%),z=${rr.z.toFixed(2)};各來源比較最高 ${rows[0].label} ${(rows[0].rate * 100).toFixed(1)}%`);
+  }
 }
 console.log("backtest tests passed");
