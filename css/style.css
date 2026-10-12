@@ -68,3 +68,12 @@ body {
 .toast { background: var(--ink); color: var(--paper); font-weight: 700; padding: 11px 18px; border-radius: 12px; margin-top: 6px; }
 .toast.err { background: var(--pink); color: #fff; }
 @media (max-width: 480px) { .ball { width: 32px; height: 32px; font-size: 14px; } .brand b { font-size: 19px; } .draw .meta { min-width: 100%; } }
+
+/* 統計 */
+.table-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th, .tbl td { border-bottom: 2px solid rgba(27,27,27,.15); padding: 6px 8px; text-align: left; vertical-align: middle; white-space: nowrap; }
+.tbl th { background: var(--yellow); border: 2px solid var(--ink); font-weight: 900; cursor: pointer; user-select: none; position: sticky; top: 0; }
+.tbl .ball { width: 30px; height: 30px; font-size: 13px; border-width: 2px; }
+.bar { display: inline-block; width: 70px; height: 10px; margin-left: 8px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; overflow: hidden; vertical-align: middle; }
+.bar i { display: block; height: 100%; background: var(--mint); }

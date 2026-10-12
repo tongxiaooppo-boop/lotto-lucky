@@ -9,3 +9,4 @@ jobs:
         with: { node-version: 22 }
       - run: node tools/check_data.mjs
       - run: node tools/test_engine.mjs
+      - run: node tools/test_stats.mjs
