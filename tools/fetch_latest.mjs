@@ -16,6 +16,7 @@ const row = (spec, d) => [spec.name, d.period, d.date.replaceAll("-", "/"), d.sa
 
 let bad = false;
 for (const spec of Object.values(GAMES)) {
+  if (spec.source === "ca") continue;   // 加州539 由 tools/fetch_ca539.mjs 處理(不同來源)
   const existing = JSON.parse(readFileSync(new URL(`data/${spec.name}.json`, root), "utf-8"));
   const r = await fetchLatest(spec, existing);
   const known = new Set(existing.map(d => d.period));
