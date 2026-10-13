@@ -328,5 +328,118 @@ export const PRESETS = {
     "anyPrizeRate": 0.1143
    }
   }
+ ],
+ "加州539": [
+  {
+   "name": "近10期熱號×4 + 上期重號×1",
+   "items": [
+    {
+     "source": "hot_n",
+     "count": 4,
+     "n": 10
+    },
+    {
+     "source": "last_repeat",
+     "count": 1
+    }
+   ],
+   "train": {
+    "tests": 2997,
+    "mean": 0.6635,
+    "diff": 0.0225,
+    "p": 0.1,
+    "anyPrizeRate": 0.12
+   },
+   "test": {
+    "tests": 2997,
+    "mean": 0.6603,
+    "diff": 0.0193,
+    "p": 0.177,
+    "anyPrizeRate": 0.1228
+   }
+  },
+  {
+   "name": "最多次×2 + 連莊×3",
+   "items": [
+    {
+     "source": "most_drawn",
+     "count": 2
+    },
+    {
+     "source": "current_streak",
+     "count": 3
+    }
+   ],
+   "train": {
+    "tests": 2997,
+    "mean": 0.6623,
+    "diff": 0.0213,
+    "p": 0.102,
+    "anyPrizeRate": 0.1163
+   },
+   "test": {
+    "tests": 2997,
+    "mean": 0.6615,
+    "diff": 0.0205,
+    "p": 0.178,
+    "anyPrizeRate": 0.1195
+   }
+  },
+  {
+   "name": "近10期熱號×3 + 連莊×2",
+   "items": [
+    {
+     "source": "hot_n",
+     "count": 3,
+     "n": 10
+    },
+    {
+     "source": "current_streak",
+     "count": 2
+    }
+   ],
+   "train": {
+    "tests": 2997,
+    "mean": 0.662,
+    "diff": 0.021,
+    "p": 0.107,
+    "anyPrizeRate": 0.1225
+   },
+   "test": {
+    "tests": 2997,
+    "mean": 0.6687,
+    "diff": 0.0276,
+    "p": 0.033,
+    "anyPrizeRate": 0.1263
+   }
+  },
+  {
+   "name": "近10期熱號×3 + 上期重號×2",
+   "items": [
+    {
+     "source": "hot_n",
+     "count": 3,
+     "n": 10
+    },
+    {
+     "source": "last_repeat",
+     "count": 2
+    }
+   ],
+   "train": {
+    "tests": 2997,
+    "mean": 0.6617,
+    "diff": 0.0206,
+    "p": 0.13,
+    "anyPrizeRate": 0.1256
+   },
+   "test": {
+    "tests": 2997,
+    "mean": 0.6683,
+    "diff": 0.0273,
+    "p": 0.041,
+    "anyPrizeRate": 0.1268
+   }
+  }
  ]
 };

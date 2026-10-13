@@ -12,7 +12,7 @@ export function normalizeDate(s) {
 // 回傳錯誤訊息陣列(空陣列表示通過)。
 export function validateDraw(spec, draw) {
   const errs = [];
-  if (!/^\d{9}$/.test(String(draw.period ?? ""))) errs.push("期別須為 9 位數字");
+  if (!new RegExp(spec.periodPattern ?? "^\\d{9}$").test(String(draw.period ?? ""))) errs.push(spec.periodPattern ? `期別格式錯誤(${spec.periodHint ?? spec.periodPattern})` : "期別須為 9 位數字");
   if (!normalizeDate(draw.date)) errs.push("日期格式錯誤");
   const n = draw.numbers;
   if (!Array.isArray(n) || n.length !== spec.count) errs.push(`號碼須為 ${spec.count} 個`);

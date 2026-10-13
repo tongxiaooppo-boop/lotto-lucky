@@ -3,6 +3,7 @@ name: update-data
 on:
   schedule:
     - cron: "30 13 * * 1-6"   # UTC 13:30 = 台灣 21:30,週一到週六(539 每天、大樂透 二五、威力彩 一四)
+    - cron: "30 4 * * *"      # UTC 04:30 = 加州前一晚 20:30/21:30(Fantasy 5 每天 18:30 開獎),每天
   workflow_dispatch:
 permissions:
   contents: write
@@ -22,6 +23,8 @@ jobs:
         with: { python-version: "3.12" }
       - name: 抓取官網最新開獎
         run: node tools/fetch_latest.mjs
+      - name: 抓取加州539(加州彩券官網;官網擋台灣 IP,所以只在這裡跑)
+        run: node tools/fetch_ca539.mjs
       - name: 重建 data/*.json
         run: python tools/build_json.py
       - name: 驗證資料與測試

@@ -186,5 +186,67 @@ export const STRATEGY_RANK = {
    "diff": -0.0306,
    "p": 0.117
   }
+ ],
+ "加州539": [
+  {
+   "id": "random",
+   "tests": 2000,
+   "diff": 0.0067,
+   "p": 0.671
+  },
+  {
+   "id": "chase",
+   "tests": 2000,
+   "diff": 0.0055,
+   "p": 0.735
+  },
+  {
+   "id": "avoid_popular",
+   "tests": 2000,
+   "diff": 0.0012,
+   "p": 0.765
+  },
+  {
+   "id": "pairing",
+   "tests": 2000,
+   "diff": -0.0018,
+   "p": 0.911
+  },
+  {
+   "id": "weighted_freq",
+   "tests": 2000,
+   "diff": -0.002,
+   "p": 0.802
+  },
+  {
+   "id": "repeat_neighbor",
+   "tests": 2000,
+   "diff": -0.003,
+   "p": 0.686
+  },
+  {
+   "id": "weighted_gap",
+   "tests": 2000,
+   "diff": -0.005,
+   "p": 0.753
+  },
+  {
+   "id": "balanced",
+   "tests": 2000,
+   "diff": -0.0063,
+   "p": 0.372
+  },
+  {
+   "id": "mix",
+   "tests": 2000,
+   "diff": -0.0088,
+   "p": 0.346
+  },
+  {
+   "id": "rebound",
+   "tests": 2000,
+   "diff": -0.0238,
+   "p": 0.133
+  }
  ]
 };

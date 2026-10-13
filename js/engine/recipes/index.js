@@ -1,7 +1,8 @@
 // 選號引擎:配方、一鍵策略、包牌展開。純函式;隨機一律經由傳入的 rng,可用種子重現。
 import { numberStats, mainSeries, extraSeries, sumDistribution, parityAndSize, applyScope } from "../stats/index.js";
 
-export const SOURCES = [
+// 基本來源:只看這個遊戲自己的統計。回測組合搜尋與特別號/第二區選號只用這一組。
+export const BASE_SOURCES = [
   { id: "most_drawn", label: "最多次" },
   { id: "least_drawn", label: "最少次" },
   { id: "current_streak", label: "連莊(目前連莊最久)" },
@@ -12,13 +13,28 @@ export const SOURCES = [
   { id: "neighbor", label: "鄰號(上期號碼前後)" },
   { id: "random", label: "隨機" },
 ];
+// 選號規則的進階來源(僅主號配方):
+//  tail_digit:指定尾數(0-9),只從該尾數的號碼挑(03/13/23/33…),再依 item.by 排序取號(預設最多次)。
+//  ref_other:引用另一個遊戲「最後一期」的號碼當候選(台灣遊戲引用加州539,加州539 引用今彩539);超出本遊戲號碼範圍的略過。
+export const TAIL_ORDERS = [
+  { id: "most_drawn", label: "最多次" }, { id: "least_drawn", label: "最少次" },
+  { id: "longest_gap", label: "遺漏最久" }, { id: "random", label: "隨機" },
+];
+export const SOURCES = [
+  ...BASE_SOURCES,
+  { id: "tail_digit", label: "尾號?", needsDigit: true },
+  { id: "ref_other", label: "加州539(最新一期)", needsRef: true },
+];
 // 特別號/第二區專用來源:主號配方的來源 + 兩種加權隨機(號碼少,等同其他遊戲的「加權隨機」策略)。
 export const EXTRA_SOURCES = [
-  ...SOURCES,
+  ...BASE_SOURCES,
   { id: "weighted_freq", label: "加權隨機(依頻率)" },
   { id: "weighted_gap", label: "加權隨機(依遺漏)" },
 ];
 export const sourceLabel = id => SOURCES.find(s => s.id === id)?.label ?? id;
+// 引用來源的名稱依目前遊戲而定:加州539 分頁引用的是今彩539。
+export const refGameName = spec => (spec.key === "ca539" ? "今彩539" : "加州539");
+export const sourceLabelFor = (id, spec) => (id === "ref_other" ? `${refGameName(spec)}(最新一期)` : sourceLabel(id));
 
 // 可重現亂數(mulberry32)
 export function makeRng(seed) {
@@ -49,7 +65,8 @@ export function combinations(pool, k) {
 }
 
 // 依來源排出候選順序(同分依 tieBreak:"random" | "small")
-function ranked(spec, draws, item, tieBreak, rng) {
+// ctx.ref:ref_other 用,另一個遊戲最後一期的號碼陣列。
+function ranked(spec, draws, item, tieBreak, rng, ctx = {}) {
   const ser = mainSeries(draws);
   const rows = numberStats(ser, spec.min, spec.max, spec.count);
   const latest = ser.at(-1) ?? [];
@@ -71,14 +88,36 @@ function ranked(spec, draws, item, tieBreak, rng) {
       const nb = new Set(latest.flatMap(v => [v - 1, v + 1]).filter(v => v >= spec.min && v <= spec.max));
       cand = rows.filter(r => nb.has(r.number)); break;
     }
+    case "tail_digit": {
+      const digit = Number.isInteger(item.digit) ? item.digit : 0;
+      if (digit < 0 || digit > 9) throw new Error(`尾數必須是 0-9(目前 ${item.digit})`);
+      cand = rows.filter(r => r.number % 10 === digit);
+      if (!cand.length) throw new Error(`號碼範圍 ${spec.min}-${spec.max} 內沒有尾數 ${digit} 的號碼`);
+      const by = item.by ?? "most_drawn";
+      if (by === "most_drawn") key = r => r.count;
+      else if (by === "least_drawn") key = r => -r.count;
+      else if (by === "longest_gap") key = r => r.curGap;
+      else if (by !== "random") throw new Error(`未知的尾號排序:${by}`);
+      break;
+    }
+    case "ref_other": {
+      if (!Array.isArray(ctx.ref) || !ctx.ref.length) throw new Error(`沒有可引用的${refGameName(spec)}資料`);
+      const set = new Set(ctx.ref);
+      cand = rows.filter(r => set.has(r.number));
+      if (!cand.length) throw new Error(`${refGameName(spec)}最後一期的號碼都不在 ${spec.min}-${spec.max} 範圍內`);
+      break;
+    }
     case "random": break;
     default: throw new Error(`未知的統計來源:${item.source}`);
   }
   return [...cand].sort((a, b) => key(b) - key(a) || tie.get(a.number) - tie.get(b.number)).map(r => r.number);
 }
 
+// 結果卡片上每個號碼的來源標籤:引用來源依遊戲顯示對方名稱,尾號顯示實際尾數。
+const pickLabel = (spec, item) => (item.source === "tail_digit" ? `尾號${item.digit ?? 0}` : sourceLabelFor(item.source, spec));
+
 // 配方產生一組主號。回傳 [{number, source}](不含包牌展開)。
-// recipe: {items:[{source,count,n?}], tieBreak, fillRandom, fixed:[], add}
+// recipe: {items:[{source,count,n?,digit?,by?}], tieBreak, fillRandom, fixed:[], add, ref?:號碼陣列(ref_other 用)}
 export function generateByRecipe(spec, draws, recipe, rng) {
   const fixed = recipe.fixed ?? [];
   const need = spec.count + (recipe.add ?? 0);
@@ -90,10 +129,10 @@ export function generateByRecipe(spec, draws, recipe, rng) {
   for (const item of recipe.items) {
     let got = 0;
     const scoped = item.scope ? applyScope(draws, item.scope) : draws;   // F4.4 條目自訂範圍
-    for (const number of ranked(spec, scoped, item, recipe.tieBreak ?? "random", rng)) {
+    for (const number of ranked(spec, scoped, item, recipe.tieBreak ?? "random", rng, { ref: recipe.ref })) {
       if (got >= item.count) break;
       if (taken.has(number)) continue;   // F4.2 去重:已被取走的跳過,取下一個
-      taken.add(number); picks.push({ number, source: sourceLabel(item.source) }); got++;
+      taken.add(number); picks.push({ number, source: pickLabel(spec, item) }); got++;
     }
   }
   if (picks.length < need) {

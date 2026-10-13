@@ -76,11 +76,14 @@ export async function renderDraws(root, game, ui) {
     } catch (err) { toast(`官網更新失敗:${err.message}(可改用手動輸入或匯入 CSV)`, true); }
     syncBtn.disabled = false; syncBtn.textContent = "從官網更新";
   } }, "從官網更新");
-  const sync = h("div", { class: "card" }, h("h3", {}, "自動更新"),
-    h("div", { class: "row" }, syncBtn),
-    h("div", { class: "hint" }, "一鍵向台灣彩券官網抓取缺少的期數,存在這個瀏覽器(標示「本機」)。官網介面若改版會失敗,可改用下方手動輸入或匯入 CSV。"));
+  const sync = game.source === "ca"
+    ? h("div", { class: "card" }, h("h3", {}, "自動更新"),
+      h("div", { class: "hint" }, "加州539 由 GitHub Actions 每天向加州彩券官網的開獎介面抓取後更新網站資料(官網擋台灣 IP,網頁本身無法直接抓)。急著補資料可用下方手動輸入或匯入 CSV。"))
+    : h("div", { class: "card" }, h("h3", {}, "自動更新"),
+      h("div", { class: "row" }, syncBtn),
+      h("div", { class: "hint" }, "一鍵向台灣彩券官網抓取缺少的期數,存在這個瀏覽器(標示「本機」)。官網介面若改版會失敗,可改用下方手動輸入或匯入 CSV。"));
 
-  const period = h("input", { class: "input", placeholder: String(+last.period + 1) });
+  const period = h("input", { class: "input", placeholder: game.periodPattern ? "20261013" : String(+last.period + 1) });
   const date = h("input", { class: "input", type: "date" });
   const numInputs = Array.from({ length: game.count }, (_, i) => h("input", { class: "input num", type: "number", min: game.min, max: game.max, placeholder: String(i + 1), "aria-label": `號碼${i + 1}` }));
   const spInput = game.extra && h("input", { class: "input num", type: "number", min: game.extra.min, max: game.extra.max, "aria-label": game.extra.label });
@@ -88,7 +91,7 @@ export async function renderDraws(root, game, ui) {
   const manual = h("div", { class: "card" },
     h("h3", {}, "手動輸入一期"),
     h("div", { class: "grid2" },
-      h("div", { class: "field" }, h("label", {}, "期別(9 位數)"), period),
+      h("div", { class: "field" }, h("label", {}, game.periodHint ? `期別(${game.periodHint})` : "期別(9 位數)"), period),
       h("div", { class: "field" }, h("label", {}, "開獎日期"), date)),
     h("div", { class: "field" }, h("label", {}, `號碼(${game.count} 個,${game.min}-${game.max})`), h("div", { class: "row" }, numInputs)),
     game.extra && h("div", { class: "field" }, h("label", {}, `${game.extra.label}(${game.extra.min}-${game.extra.max})`), spInput),
@@ -127,11 +130,12 @@ export async function renderDraws(root, game, ui) {
       h("button", { class: "btn", onclick: () => (nLocal ? download(`${game.name}-本機資料.json`, exportLocal(game)) : toast("目前沒有本機資料", true)) }, `匯出本機資料(${nLocal})`),
       nLocal > 0 && h("button", { class: "btn pink sm", onclick: () => { if (confirm("清除這個遊戲的本機資料?(會先保留一份備份)")) { clearLocal(game); refresh(); } } }, "清除本機資料")),
     fileIn, jsonIn,
-    h("div", { class: "hint" }, "官方 CSV 下載:台灣彩券官網「歷史開獎號碼下載」。匯入時以期別去重,已存在的期別會略過。"));
+    h("div", { class: "hint" }, (game.source === "ca" ? "CSV 欄位須含:期別(開獎日期 YYYYMMDD)、開獎日期、獎號1~獎號5。" : "官方 CSV 下載:台灣彩券官網「歷史開獎號碼下載」。") + "匯入時以期別去重,已存在的期別會略過。"));
 
-  const gaps = checkContinuity(draws);
+  const gaps = game.periodPattern ? [] : checkContinuity(draws);   // 加州539 以日期當期別,沒有連號可查
   const health = h("div", { class: "card white" }, h("h3", {}, "資料完整性"),
-    gaps.length
+    game.periodPattern ? h("div", { class: "hint" }, "加州539 以開獎日期當期別,不做期別連號檢查;每天開獎,日期是否有缺漏可看「開獎」列表。")
+    : gaps.length
       ? h("div", { class: "bad" }, `期別不連號,可能缺漏:${gaps.slice(0, 10).join("、")}${gaps.length > 10 ? ` …共 ${gaps.length} 處` : ""}`)
       : h("div", {}, "期別連號,無缺漏。"));
 

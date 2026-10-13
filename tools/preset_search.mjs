@@ -3,15 +3,18 @@
 //   1. 候選 = 單一統計來源,以及兩個來源的各種數量拆分(例如 追熱×3 + 遺漏比值×2)。
 //   2. 用「前半段歷史」的回測平均命中挑出最好的幾個(訓練段)。
 //   3. 再用「後半段歷史」重新驗證這幾個(測試段)——這才是不偏樂觀的成績。
-// 用法:node tools/preset_search.mjs [--top 4] [--seeds 2]
+// 用法:node tools/preset_search.mjs [--top 4] [--seeds 2] [--only 加州539]
+//   --only:只重算指定遊戲,其餘遊戲沿用現有 js/core/presets.js(新增遊戲時用,避免動到既有結果)。
 import { readFileSync, writeFileSync } from "node:fs";
 import { GAMES } from "../js/core/games.js";
 import { backtest, MIN_HISTORY } from "../js/engine/backtest/index.js";
-import { generateByRecipe, SOURCES } from "../js/engine/recipes/index.js";
+import { generateByRecipe, BASE_SOURCES } from "../js/engine/recipes/index.js";
+import { PRESETS as OLD } from "../js/core/presets.js";
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? +process.argv[i + 1] : d; };
 const TOP = arg("--top", 4), SEEDS = arg("--seeds", 2);
-const SRC = SOURCES.filter(s => s.id !== "random" && s.id !== "neighbor");   // 鄰號/隨機候選太少或無意義,不單獨成組
+const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
+const SRC = BASE_SOURCES.filter(s => s.id !== "random" && s.id !== "neighbor");   // 鄰號/隨機候選太少或無意義,不單獨成組
 const label = s => ({ most_drawn: "最多次", least_drawn: "最少次", current_streak: "連莊", longest_gap: "遺漏最久", gap_ratio: "遺漏比值", last_repeat: "上期重號", hot_n: "近10期熱號" })[s] ?? s;
 
 function candidates(count) {
@@ -34,6 +37,7 @@ const pack = (rs) => ({ tests: rs[0].tests, mean: +avg(rs.map(r => r.mean)).toFi
 
 const out = {};
 for (const spec of Object.values(GAMES)) {
+  if (only && spec.name !== only) { out[spec.name] = { picks: OLD[spec.name] }; continue; }
   const draws = JSON.parse(readFileSync(new URL(`../data/${spec.name}.json`, import.meta.url), "utf-8"));
   const n = draws.length, mid = Math.floor((MIN_HISTORY + n) / 2);
   const cands = candidates(spec.count);

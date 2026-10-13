@@ -1,7 +1,7 @@
 import csv, json, glob, os, sys
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.join(BASE, "history")
-GAMES = {"今彩539": ("539", 5, None), "大樂透": ("lotto649", 6, "特別號"), "威力彩": ("superlotto638", 6, "第二區")}
+GAMES = {"今彩539": ("539", 5, None), "大樂透": ("lotto649", 6, "特別號"), "威力彩": ("superlotto638", 6, "第二區"), "加州539": ("ca539", 5, None)}
 for game, (key, n, extra) in GAMES.items():
     files = glob.glob(os.path.join(ROOT, "**", game + "_*.csv"), recursive=True)
     rows = {}

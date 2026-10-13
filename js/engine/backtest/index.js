@@ -8,7 +8,8 @@ export const MIN_HISTORY = 30;
 
 // 中獎等級(單注)。hits = 主號命中數;sp = 特別號/第二區是否命中。
 export function prizeTier(gameKey, hits, sp) {
-  if (gameKey === "539") return { 5: "頭獎", 4: "貳獎", 3: "參獎", 2: "肆獎" }[hits] ?? null;
+  // 加州539(Fantasy 5):中 2 個送一張免費彩券,這裡仍以「肆獎」位階計,與今彩539 的命中門檻一致
+  if (gameKey === "539" || gameKey === "ca539") return { 5: "頭獎", 4: "貳獎", 3: "參獎", 2: "肆獎" }[hits] ?? null;
   if (gameKey === "lotto649") {
     if (hits === 6) return "頭獎";
     if (hits === 5) return sp ? "貳獎" : "參獎";

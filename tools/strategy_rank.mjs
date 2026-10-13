@@ -1,17 +1,21 @@
 // 以回測成績替一鍵策略排序,產生 js/core/strategy_rank.js(選號頁依此由上而下排列)。
 // 每個遊戲:最近 N 期(預設 2000)逐期回測,多個種子平均;排序依「平均命中 − 隨機理論值」。
 // 排名不代表更準:差距在統計上多半不顯著,且每次重跑都可能換名次。
-// 用法:node tools/strategy_rank.mjs [--tests 2000] [--seeds 2]
+// 用法:node tools/strategy_rank.mjs [--tests 2000] [--seeds 2] [--only 加州539]
+//   --only:只重算指定遊戲,其餘遊戲沿用現有 js/core/strategy_rank.js(新增遊戲時用)。
 import { readFileSync, writeFileSync } from "node:fs";
 import { GAMES } from "../js/core/games.js";
 import { backtest } from "../js/engine/backtest/index.js";
 import { STRATEGIES } from "../js/engine/recipes/strategies.js";
+import { STRATEGY_RANK as OLD } from "../js/core/strategy_rank.js";
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? +process.argv[i + 1] : d; };
 const TESTS = arg("--tests", 2000), SEEDS = arg("--seeds", 2);
 const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
 const out = {};
 for (const spec of Object.values(GAMES)) {
+  if (only && spec.name !== only) { out[spec.name] = OLD[spec.name]; continue; }
   const draws = JSON.parse(readFileSync(new URL(`../data/${spec.name}.json`, import.meta.url), "utf-8"));
   const t0 = performance.now();
   const rows = STRATEGIES.map(s => {
