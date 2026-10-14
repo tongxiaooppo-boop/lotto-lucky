@@ -75,4 +75,29 @@ for (const game of Object.values(GAMES)) {
     console.log(`${g.name} 特別號/第二區:純隨機命中率 ${(rr.rate * 100).toFixed(2)}%(理論 ${(rr.expected * 100).toFixed(2)}%),z=${rr.z.toFixed(2)};各來源比較最高 ${rows[0].label} ${(rows[0].rate * 100).toFixed(1)}%`);
   }
 }
+// 回測「目前配方」(job.js recipeFn)
+{
+  const { recipeFn, runJob } = await import("../js/engine/backtest/job.js");
+  const { generateByRecipe, fitItems } = await import("../js/engine/recipes/index.js");
+  const job = recipe => ({ gameName: g.name, draws, mode: "one", strategy: "recipe", recipe, testCount: 40, scopeN: 300, seed: 1 });
+  // 選號頁用了「增加 2 號」,配方合計 7 個 → 回測截成 5 個,不再報錯
+  assert.deepEqual(fitItems([{ source: "a", count: 4 }, { source: "b", count: 3 }], 5), [{ source: "a", count: 4 }, { source: "b", count: 1 }]);
+  assert.equal(runJob(job({ items: [{ source: "most_drawn", count: 4 }, { source: "least_drawn", count: 3 }], tieBreak: "random" })).result.tests, 40);
+  // 引用另一遊戲:沒給資料 → 清楚的錯誤;有給 → 只用被預測那期「之前」的一期
+  assert.throws(() => recipeFn(g, { items: [{ source: "ref_other", count: 2 }] }), /沒有加州539資料可回測/);
+  const refDraws = [{ date: "2026-01-01", numbers: [1, 2, 3, 4, 5] }, { date: "2026-01-02", numbers: [6, 7, 8, 9, 10] }, { date: "2026-01-03", numbers: [11, 12, 13, 14, 15] }];
+  const fn = recipeFn(g, { items: [{ source: "ref_other", count: 5 }], tieBreak: "small" }, refDraws);
+  const hist = draws.slice(-50), rng = makeRng(1);
+  assert.deepEqual(fn(hist, rng, { date: "2026-01-03", before: () => hist }).sort((a, b) => a - b), [6, 7, 8, 9, 10], "同一天的不能用,取前一天");
+  assert.deepEqual(fn(hist, rng, { date: "2026-02-01", before: () => hist }).sort((a, b) => a - b), [11, 12, 13, 14, 15]);
+  assert.equal(fn(hist, rng, { date: "2025-12-31", before: () => hist }).length, 5, "之前沒有資料 → 略過該條目、隨機補滿");
+  // 條目自訂範圍「歷史全部」要用完整歷史,不受全域範圍 / 回測窗口限制
+  const scoped = draws.slice(-300), item = [{ source: "most_drawn", count: 5 }];
+  const top = d => generateByRecipe(g, d, { items: item, tieBreak: "small" }, makeRng(1)).map(p => p.number);
+  const viaScope = generateByRecipe(g, scoped, { items: [{ ...item[0], scope: { type: "all" } }], tieBreak: "small", full: draws }, makeRng(1)).map(p => p.number);
+  assert.deepEqual(viaScope, top(draws));
+  assert.notDeepEqual(top(scoped), top(draws), "測試前提:最近 300 期與全部歷史的最多次號碼不同");
+  const fnScope = recipeFn(g, { items: [{ ...item[0], scope: { type: "all" } }], tieBreak: "small" });
+  assert.deepEqual(fnScope(scoped, makeRng(1), { date: "2099-01-01", before: () => draws }), top(draws));
+}
 console.log("backtest tests passed");

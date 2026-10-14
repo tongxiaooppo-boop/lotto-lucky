@@ -2,23 +2,28 @@
 import { h } from "./dom.js";
 import { getDraws } from "../data/store.js";
 import { STRATEGIES } from "../engine/recipes/strategies.js";
+import { refGameName } from "../engine/recipes/index.js";
+import { GAMES } from "../core/games.js";
 import { pct, bar } from "./widgets.js";
 
-// 先用 Worker;不支援時退回主執行緒(動態載入)。
+// 先用 Worker;不支援、或 Worker 還沒回任何訊息就出錯(例如瀏覽器不支援模組 Worker、載入失敗)時,退回主執行緒(動態載入)。
 function runJob(job, onProgress) {
+  const inMain = () => import("../engine/backtest/job.js").then(m => m.runJob(job, onProgress));
   return new Promise((resolve, reject) => {
-    let worker;
+    let worker, heard = false;
     try { worker = new Worker(new URL("../engine/backtest/worker.js", import.meta.url), { type: "module" }); }
     catch { worker = null; }
-    if (!worker) {
-      import("../engine/backtest/job.js").then(m => resolve(m.runJob(job, onProgress))).catch(reject);
-      return;
-    }
+    if (!worker) { inMain().then(resolve, reject); return; }
     worker.onmessage = e => {
+      heard = true;
       if (e.data.type === "progress") onProgress(e.data.p);
       else { worker.terminate(); e.data.type === "done" ? resolve(e.data.result) : reject(new Error(e.data.message)); }
     };
-    worker.onerror = e => { worker.terminate(); reject(new Error(e.message || "回測執行失敗")); };
+    worker.onerror = e => {
+      worker.terminate();
+      if (!heard) { e.preventDefault?.(); inMain().then(resolve, reject); }
+      else reject(new Error(e.message || "回測執行失敗"));
+    };
     worker.postMessage(job);
   });
 }
@@ -56,6 +61,10 @@ export async function renderBacktest(root, game, ui) {
     };
     try {
       if (job.strategy === "recipe" && !job.recipe) throw new Error("請先到「選號」分頁設定配方");
+      if (job.strategy === "recipe" && job.recipe.items.some(i => i.source === "ref_other")) {
+        const ref = GAMES[refGameName(game)];
+        job.refDraws = ref ? (await getDraws(ref)).draws.map(d => ({ date: d.date, numbers: d.numbers })) : null;
+      }
       const res = await runJob(job, p => { fill.style.width = `${Math.round(p * 100)}%`; });
       msg.textContent = "";
       out.replaceChildren(...(res.mode === "extra" ? renderExtra(res.rows, game) : res.mode === "all" ? renderAll(res.rows) : renderOne(res.result, game)));
@@ -68,6 +77,7 @@ export async function renderBacktest(root, game, ui) {
     h("div", { class: "card" },
       h("div", { class: "hint", style: "margin:-6px 0 10px" }, "對每個測試期,只用「該期以前」的資料產生一注推薦,與實際開獎比對,再和純隨機的理論值比較。預期結論多半是「沒有差異」。"),
       h("div", { class: "field" }, h("label", {}, "策略"), stratSel),
+      h("div", { class: "hint", style: "margin:-4px 0 8px" }, `「目前配方」回測時一律每注 ${game.count} 個、不含固定號碼:配方超過 ${game.count} 個(用了增加號碼)時依序截掉;條目自訂範圍取該期以前的完整歷史;「${refGameName(game)}(最新一期)」用該期開獎日之前最近一期的號碼。`),
       h("div", { class: "row" }, "測試最近", num("testCount", 10), "期;歷史窗口", num("scopeN", 10), "期;種子", h("input", { class: "input num", style: "width:96px", placeholder: "選填", value: st.seed, onchange: e => { st.seed = e.target.value.trim(); } })),
       h("div", { class: "row", style: "margin-top:12px" },
         h("button", { class: "btn yellow", onclick: () => go("one") }, "回測這個策略"),

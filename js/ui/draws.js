@@ -1,6 +1,6 @@
 // 「開獎」分頁:近 N 期列表、手動輸入、CSV 匯入、本機資料匯出入。
 import { h, toast, download } from "./dom.js";
-import { getDraws, addToLocal, exportLocal, clearLocal, loadLocal, loadUpdatedAt } from "../data/store.js";
+import { getDraws, addToLocal, exportLocal, clearLocal, loadLocal, loadUpdatedAt, removeLocal, hasBackup, restoreBackup } from "../data/store.js";
 import { parseCsv, checkContinuity } from "../engine/draws.js";
 import { fetchLatest } from "../data/official.js";
 
@@ -32,7 +32,9 @@ export async function renderDraws(root, game, ui) {
       const balls = d.numbers.map(n => h("span", { class: "ball" + (rep.has(n) ? " rep" : "") }, fmt(n)));
       if (game.extra) balls.push(h("span", { class: "plus" }, "+"), h("span", { class: "ball sp", title: game.extra.label }, fmt(d.special)));
       return h("div", { class: "draw" },
-        h("div", { class: "meta" }, h("b", {}, d.period), localPeriods.has(d.period) && h("span", { class: "tag" }, "本機"), h("div", {}, d.date)),
+        h("div", { class: "meta" }, h("b", {}, d.period), localPeriods.has(d.period) && h("span", { class: "tag" }, "本機"), h("div", {}, d.date),
+          localPeriods.has(d.period) && h("button", { class: "btn sm pink", style: "margin-top:4px;padding:2px 10px", title: "刪除這一期本機資料(例如期別打錯)",
+            onclick: () => { if (confirm(`刪除本機資料 ${d.period}(${d.date})?`)) { if (removeLocal(game, d.period)) { toast(`已刪除 ${d.period}`); refresh(); } else toast("瀏覽器儲存失敗", true); } } }, "刪除")),
         h("div", { class: "balls" }, balls),
         state.extra && h("div", { class: "extra" }, `銷售額 ${money(d.sales)}　總獎金 ${money(d.prize)}`));
     }));
@@ -129,9 +131,11 @@ export async function renderDraws(root, game, ui) {
       h("button", { class: "btn mint", onclick: () => fileIn.click() }, "匯入官方 CSV"),
       h("button", { class: "btn", onclick: () => jsonIn.click() }, "還原本機備份"),
       h("button", { class: "btn", onclick: () => (nLocal ? download(`${game.name}-本機資料.json`, exportLocal(game)) : toast("目前沒有本機資料", true)) }, `匯出本機資料(${nLocal})`),
-      nLocal > 0 && h("button", { class: "btn pink sm", onclick: () => { if (confirm("清除這個遊戲的本機資料?(會先保留一份備份)")) { clearLocal(game); refresh(); } } }, "清除本機資料")),
+      nLocal > 0 && h("button", { class: "btn pink sm", onclick: () => { if (confirm("清除這個遊戲的本機資料?(清錯了可以按「復原上一次變更」救回)")) { clearLocal(game); refresh(); } } }, "清除本機資料"),
+      hasBackup(game) && h("button", { class: "btn sm", title: "把本機資料換回上一次新增/刪除/清除之前的樣子;再按一次可換回來",
+        onclick: () => { if (confirm("把本機資料復原到上一次變更之前?")) { if (restoreBackup(game)) { toast("已復原"); refresh(); } else toast("復原失敗", true); } } }, "復原上一次變更")),
     fileIn, jsonIn,
-    h("div", { class: "hint" }, (game.source === "ca" ? "CSV 欄位須含:期別(開獎日期 YYYYMMDD)、開獎日期、獎號1~獎號5。" : "官方 CSV 下載:台灣彩券官網「歷史開獎號碼下載」。") + "匯入時以期別去重,已存在的期別會略過。"));
+    h("div", { class: "hint" }, (game.source === "ca" ? "CSV 欄位須含:期別(開獎日期 YYYYMMDD)、開獎日期、獎號1~獎號5。" : "官方 CSV 下載:台灣彩券官網「歷史開獎號碼下載」。") + "匯入時以期別去重,已存在的期別會略過。本機資料若打錯,可在上方列表按該期的「刪除」;網站之後收錄同一期時,本機那筆會自動移除(以網站資料為準)。"));
 
   const gaps = game.periodPattern ? [] : checkContinuity(draws);   // 加州539 以日期當期別,沒有連號可查
   const health = h("div", { class: "card white" }, h("h3", {}, "資料完整性"),

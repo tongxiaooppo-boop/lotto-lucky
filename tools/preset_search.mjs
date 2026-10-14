@@ -33,6 +33,7 @@ const nameOf = items => items.map(i => `${label(i.source)}×${i.count}`).join(" 
 const fnOf = (spec, items) => (hist, rng) => generateByRecipe(spec, hist, { items, tieBreak: "random", fillRandom: true, fixed: [], add: 0 }, rng).map(p => p.number);
 
 const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+// p = 各種子 p 值的平均:不是嚴格的檢定 p 值(介面標示為「p≈…多個種子的平均,僅供參考」),只用來粗看差距是否明顯。
 const pack = (rs) => ({ tests: rs[0].tests, mean: +avg(rs.map(r => r.mean)).toFixed(4), diff: +(avg(rs.map(r => r.mean)) - rs[0].expectedMean).toFixed(4), p: +avg(rs.map(r => r.p)).toFixed(3), anyPrizeRate: +avg(rs.map(r => r.anyPrizeRate)).toFixed(4) });
 
 const out = {};

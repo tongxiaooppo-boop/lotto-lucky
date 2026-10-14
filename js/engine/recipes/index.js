@@ -116,8 +116,20 @@ function ranked(spec, draws, item, tieBreak, rng, ctx = {}) {
 // 結果卡片上每個號碼的來源標籤:引用來源依遊戲顯示對方名稱,尾號顯示實際尾數。
 const pickLabel = (spec, item) => (item.source === "tail_digit" ? `尾號${item.digit ?? 0}` : sourceLabelFor(item.source, spec));
 
+// 把配方條目依序截斷到 slots 個名額(固定號碼或「每注只選 count 個」會佔掉名額),不足的之後由 fillRandom 補滿。
+export function fitItems(items, slots) {
+  let remaining = Math.max(0, slots);
+  const out = [];
+  for (const it of items) {
+    const count = Math.min(it.count, remaining);
+    if (count > 0) { out.push({ ...it, count }); remaining -= count; }
+  }
+  return out;
+}
+
 // 配方產生一組主號。回傳 [{number, source}](不含包牌展開)。
-// recipe: {items:[{source,count,n?,digit?,by?}], tieBreak, fillRandom, fixed:[], add, ref?:號碼陣列(ref_other 用)}
+// recipe: {items:[{source,count,n?,digit?,by?,scope?}], tieBreak, fillRandom, fixed:[], add, ref?:號碼陣列(ref_other 用),
+//          full?:不受全域範圍限制的完整歷史(條目自訂範圍「歷史全部 / 近 N 期」從這裡取;沒給就用 draws)}
 export function generateByRecipe(spec, draws, recipe, rng) {
   const fixed = recipe.fixed ?? [];
   const need = spec.count + (recipe.add ?? 0);
@@ -128,7 +140,7 @@ export function generateByRecipe(spec, draws, recipe, rng) {
   if (picks.length + total > need) throw new Error(`條目合計 ${total} 個,加上固定號碼已超過需要的 ${need} 個`);
   for (const item of recipe.items) {
     let got = 0;
-    const scoped = item.scope ? applyScope(draws, item.scope) : draws;   // F4.4 條目自訂範圍
+    const scoped = item.scope ? applyScope(recipe.full ?? draws, item.scope) : draws;   // F4.4 條目自訂範圍(不受全域範圍限制)
     for (const number of ranked(spec, scoped, item, recipe.tieBreak ?? "random", rng, { ref: recipe.ref })) {
       if (got >= item.count) break;
       if (taken.has(number)) continue;   // F4.2 去重:已被取走的跳過,取下一個

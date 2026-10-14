@@ -1,5 +1,6 @@
 // 策略回測(F5.3):對每個測試期,只用「該期以前」的資料產生推薦,再與實際開獎比對。
-// 純函式;strategyFn(history, rng) → 主號陣列(history 為範圍內的開獎,舊→新)。
+// 純函式;strategyFn(history, rng, ctx) → 主號陣列(history 為範圍內的開獎,舊→新)。
+// ctx = { date: 被預測那期的開獎日期, before(): 該期以前的完整歷史(不受 scopeN 限制) };只給「該期以前」的資訊,不洩漏答案。
 import { makeRng, pickSecond, pickExtra, EXTRA_SOURCES } from "../recipes/index.js";
 import { hypergeom } from "../stats/index.js";
 import { STRATEGIES } from "../recipes/strategies.js";
@@ -54,7 +55,7 @@ export function backtest(spec, draws, strategyFn, { scopeN = null, testCount = 3
   for (let i = start; i < n; i++) {
     const hist = draws.slice(scopeN ? Math.max(0, i - scopeN) : 0, i);   // 嚴格只用 i 以前的資料
     const actual = draws[i];
-    const picks = strategyFn(hist, rng);
+    const picks = strategyFn(hist, rng, { date: actual.date, before: () => draws.slice(0, i) });
     let sp = false;
     if (spec.extra) {
       if (spec.extra.pickable) sp = pickSecond(spec, hist, "random", rng)[0] === actual.special;

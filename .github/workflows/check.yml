@@ -8,6 +8,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: node tools/check_data.mjs
+      - run: node tools/check_gaps.mjs
       - run: node tools/test_engine.mjs
       - run: node tools/test_stats.mjs
       - run: node tools/test_stats_more.mjs
@@ -18,3 +19,5 @@ jobs:
       - run: node tools/test_presets.mjs
       - run: node tools/test_presets_extra.mjs
       - run: node tools/test_ca539.mjs
+      - name: 網頁冒煙測試(runner 內建的 Chrome)
+        run: node tools/test_ui.mjs

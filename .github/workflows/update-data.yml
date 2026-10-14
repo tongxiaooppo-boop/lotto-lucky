@@ -28,9 +28,15 @@ jobs:
         with: { node-version: 22 }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
+      # 兩個來源互不影響:任一邊失敗(官網改版、當機、資料衝突)時,另一邊抓到的資料照樣驗證、commit、發布;
+      # 失敗的那邊在最後一步讓整個工作標示為失敗(GitHub 會寄通知)。各遊戲在腳本內也各自判斷,一個遊戲出錯不擋其他遊戲。
       - name: 抓取官網最新開獎
+        id: tw
+        continue-on-error: true
         run: node tools/fetch_latest.mjs
       - name: 抓取加州539(加州彩券官網;官網擋台灣 IP,所以只在這裡跑)
+        id: ca
+        continue-on-error: true
         run: node tools/fetch_ca539.mjs
       - name: 重建 data/*.json
         run: python tools/build_json.py
@@ -49,5 +55,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data history
           git commit -m "資料更新:$(date -u -d '+8 hours' +%F)"
+          # 執行期間若有人推了新 commit,先接上再推(資料檔只由這個工作產生,一般不會衝突)
+          git pull --rebase origin main
           git push
           gh workflow run pages.yml
+      - name: 檢查期數缺漏(有缺漏只通知,不影響上面已發布的資料)
+        id: gaps
+        continue-on-error: true
+        run: node tools/check_gaps.mjs
+      - name: 回報失敗
+        if: steps.tw.outcome == 'failure' || steps.ca.outcome == 'failure' || steps.gaps.outcome == 'failure'
+        run: |
+          echo "台灣官網:${{ steps.tw.outcome }};加州539:${{ steps.ca.outcome }};缺漏檢查:${{ steps.gaps.outcome }}(詳見各步驟的紀錄)"
+          exit 1

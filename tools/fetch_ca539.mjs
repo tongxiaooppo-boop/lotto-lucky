@@ -36,21 +36,28 @@ async function get(url, decode = "utf-8", attempts = 3) {
 }
 
 let bad = false;
-// 每日更新只要第 1 頁;回補時把官網給得出來的頁數(約 4 頁、182 期)全抓,當作比對 lottery.net 的基準。
+let gap = false;   // 與既有資料之間有接不上的缺口:照樣寫入抓到的資料,但結束碼 1 通知人工補
+// 每日更新通常只要第 1 頁(50 期);若既有資料最後一期比第 1 頁最舊的一期還早(例如排程停了一個多月),
+// 就繼續翻頁直到接上(官網最多約 4 頁、182 期;再久的缺口只能人工補)。
+// 回補時把官網給得出來的頁數全抓,當作比對 lottery.net 的基準。
 async function officialPage(page) {
   const text = await get(OFFICIAL(page));
   if (text.trim() === "null") throw new Error("官網回傳空值(介面改版?)");
   return parseOfficial(spec, JSON.parse(text));
 }
+const dataFile = new URL("data/加州539.json", root);
+const existing = existsSync(dataFile) ? JSON.parse(readFileSync(dataFile, "utf-8")) : [];
+const lastHave = existing.at(-1)?.date ?? "";
 const off = await officialPage(1);
-if (backfill) {
-  for (let p = 2; p <= 10; p++) {
-    await sleep(1000);
-    const r = await officialPage(p);
-    if (!r.draws.length && !r.failed.length) break;
-    off.draws.push(...r.draws); off.failed.push(...r.failed);
-  }
+const oldest = () => off.draws.map(d => d.date).sort()[0] ?? "";
+for (let p = 2; p <= 10 && (backfill || (lastHave && oldest() > lastHave)); p++) {
+  await sleep(1000);
+  const r = await officialPage(p);
+  if (!r.draws.length && !r.failed.length) break;
+  off.draws.push(...r.draws); off.failed.push(...r.failed);
+  if (!backfill) console.log(`  既有資料停在 ${lastHave},多抓官網第 ${p} 頁`);
 }
+if (!backfill && lastHave && oldest() > lastHave) { gap = true; console.error(`既有資料停在 ${lastHave},官網最舊只到 ${oldest()},中間的缺口需要人工補(history/manual/)`); }
 for (const f of off.failed) { bad = true; console.error(`  官網資料失敗 ${f.period}:${f.reason}`); }
 if (!off.draws.length) { bad = true; console.error("官網沒有任何開獎資料"); }
 const latest = off.draws.map(d => d.date).sort().at(-1);
@@ -94,12 +101,10 @@ if (verify) {
   } catch (e) { console.warn(`警告:9800 交叉驗證失敗:${e.message}`); }
 }
 
-const dataFile = new URL("data/加州539.json", root);
-const existing = existsSync(dataFile) ? JSON.parse(readFileSync(dataFile, "utf-8")) : [];
 const { fresh, conflicts } = diffAgainst(existing, all);
 for (const c of conflicts) { bad = true; console.error(`  與既有資料衝突 ${c.period}:既有 ${c.existing} / 本次 ${c.fetched}`); }
 console.log(`加州539: 共 ${all.length} 期,新增 ${fresh.length} 期,衝突 ${conflicts.length}`);
-if (dry || bad || !fresh.length) process.exit(bad ? 1 : 0);
+if (dry || bad || !fresh.length) process.exit(bad || gap ? 1 : 0);
 
 const header = ["遊戲名稱", "期別", "開獎日期", "銷售總額", "銷售注數", "總獎金", ...Array.from({ length: spec.count }, (_, i) => `獎號${i + 1}`)].join(",");
 const row = d => [spec.name, d.period, d.date.replaceAll("-", "/"), "", "", "", ...d.numbers].join(",");
@@ -111,3 +116,4 @@ const merged = new Map([...prev, ...fresh].map(d => [d.period, d]));
 const out = [...merged.values()].sort((a, b) => (a.date + a.period < b.date + b.period ? -1 : 1));
 writeFileSync(file, "﻿" + [header, ...out.map(row)].join("\n") + "\n", "utf-8");
 console.log(`已寫入 加州539_api.csv(${out.length} 期)`);
+process.exit(gap ? 1 : 0);

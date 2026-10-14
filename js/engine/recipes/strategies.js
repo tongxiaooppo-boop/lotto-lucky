@@ -2,7 +2,7 @@
 // 每個策略:run(spec, history, {fixed, add}, rng) → [{number, source}]。history = 範圍內的開獎(舊→新)。
 import { numberStats, mainSeries, sumDistribution } from "../stats/index.js";
 import { heatGroups, partnersOf } from "../stats/more.js";
-import { generateByRecipe, balanced, pureRandom, shuffle } from "./index.js";
+import { generateByRecipe, balanced, pureRandom, shuffle, fitItems } from "./index.js";
 
 const allNumbers = spec => Array.from({ length: spec.max - spec.min + 1 }, (_, i) => spec.min + i);
 
@@ -22,15 +22,8 @@ function complete(spec, fixed, ordered, need, source, rng) {
 }
 
 // 把策略的條目依「還需要幾個」截斷(固定號碼會佔掉名額),不足的部分由 fillRandom 補滿。
-const recipeStrategy = items => (spec, hist, { fixed, add }, rng) => {
-  let remaining = Math.max(0, spec.count + add - fixed.length);
-  const trimmed = [];
-  for (const it of items(spec)) {
-    const count = Math.min(it.count, remaining);
-    if (count > 0) { trimmed.push({ ...it, count }); remaining -= count; }
-  }
-  return generateByRecipe(spec, hist, { items: trimmed, tieBreak: "random", fillRandom: true, fixed, add }, rng);
-};
+const recipeStrategy = items => (spec, hist, { fixed, add }, rng) =>
+  generateByRecipe(spec, hist, { items: fitItems(items(spec), spec.count + add - fixed.length), tieBreak: "random", fillRandom: true, fixed, add }, rng);
 
 // 加權隨機(不放回):權重 w(number),Efraimidis-Spirakis 抽樣
 function weightedOrder(spec, w, rng) {

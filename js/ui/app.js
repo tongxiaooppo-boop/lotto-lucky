@@ -30,15 +30,22 @@ function placeholder(name, msg) {
   return h("div", { class: "card" }, h("h3", {}, name), h("p", {}, msg));
 }
 
+// 快速切換遊戲/分頁時,較慢的舊載入不可蓋掉新畫面:每次 render 給分頁一個「只有自己仍是最新一次才會寫入畫面」的 root。
+// (分頁內部的重畫與延遲刷新也走同一個 root,切走之後就不會再改到畫面。)
+let renderSeq = 0;
 async function render() {
+  const seq = ++renderSeq;
+  const live = () => seq === renderSeq;
+  const root = { replaceChildren: (...nodes) => { if (live()) view.replaceChildren(...nodes); } };
   renderChrome();
   try {
-    if (ui.tab === "開獎") await renderDraws(view, ui.game, ui);
-    else if (ui.tab === "統計") await renderStats(view, ui.game, ui);
-    else if (ui.tab === "選號") await renderPick(view, ui.game, ui);
-    else if (ui.tab === "回測") await renderBacktest(view, ui.game, ui);
-    else if (ui.tab === "說明") renderHelp(view);
+    if (ui.tab === "開獎") await renderDraws(root, ui.game, ui);
+    else if (ui.tab === "統計") await renderStats(root, ui.game, ui);
+    else if (ui.tab === "選號") await renderPick(root, ui.game, ui);
+    else if (ui.tab === "回測") await renderBacktest(root, ui.game, ui);
+    else if (ui.tab === "說明") renderHelp(root);
   } catch (e) {
+    if (!live()) return;
     view.replaceChildren(placeholder("發生錯誤", e.message));
     toast(e.message, true);
   }

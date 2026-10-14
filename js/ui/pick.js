@@ -74,7 +74,7 @@ export async function renderPick(root, game, ui) {
         EXTRA_SOURCES.find(s => s.id === st.extraSource)?.needsN && h("span", { class: "row", style: "gap:4px" }, "近", h("input", { class: "input num", type: "number", min: 1, value: st.extraN, onchange: e => { st.extraN = Math.max(1, Math.trunc(+e.target.value) || 10); } }), "期")),
       extraPresets.length > 0 && h("div", { style: "margin-top:6px" },
         h("div", { class: "hint" }, `回測組合(前半段歷史挑、後半段驗證;按下套用選法${game.extra.pickable ? "與個數" : ""}):`),
-        h("div", { class: "row" }, extraPresets.map(p => h("button", { class: "chip mint", title: `訓練段 ${signed(p.train.diff)} → 測試段 ${signed(p.test.diff)}(p=${p.test.p.toFixed(2)}),單位:命中率 − 隨機理論值`,
+        h("div", { class: "row" }, extraPresets.map(p => h("button", { class: "chip mint", title: `訓練段 ${signed(p.train.diff)} → 測試段 ${signed(p.test.diff)}(p≈${p.test.p.toFixed(2)},多個種子的平均,僅供參考),單位:命中率 − 隨機理論值`,
           onclick: () => { st.extraSource = p.source; st.extraK = game.extra.pickable ? p.k : 1; if (p.n) st.extraN = p.n; clear(); rerender(); } }, `${p.name}(測試 ${signed(p.test.diff)})`))),
         h("div", { class: "hint" }, "測試段多半回到 0 附近,代表沒有可靠優勢,按鈕只是方便套用。")),
       game.extra.pickable && h("div", { class: "row", style: "margin-top:6px" }, "個數:",
@@ -94,7 +94,7 @@ export async function renderPick(root, game, ui) {
     st.items = [];
     for (const it of p.items) { const count = Math.min(it.count, remaining); if (count > 0) { st.items.push({ ...structuredClone(it), count }); remaining -= count; } }
     st.tieBreak = "random"; st.fillRandom = true; st.name = p.name;
-    run(p.name, (r, f) => generateByRecipe(game, draws, { items: st.items, tieBreak: "random", fillRandom: true, fixed: f, add: st.add, ref: refNumbers }, r));
+    run(p.name, (r, f) => generateByRecipe(game, draws, { items: st.items, tieBreak: "random", fillRandom: true, fixed: f, add: st.add, ref: refNumbers, full: all }, r));
     rerenderKeepResult();
   };
   const presets = PRESETS[game.name] ?? [];
@@ -103,7 +103,7 @@ export async function renderPick(root, game, ui) {
     h("div", { class: "hint", style: "margin:-6px 0 10px" }, "從上百種配方組合中,用「前半段歷史」挑出回測平均命中最高的幾個,再用「後半段歷史」重新驗證。按下去會套用到下方配方並立刻產生號碼。"),
     ...presets.map(p => h("div", { class: "preset" },
       h("button", { class: "btn sm mint", onclick: () => applyPreset(p) }, p.name),
-      h("div", { class: "hint" }, `訓練段 ${signed(p.train.diff)} → 測試段 ${signed(p.test.diff)}(p=${p.test.p.toFixed(2)}),單位:平均命中個數 − 隨機理論值`))),
+      h("div", { class: "hint" }, `訓練段 ${signed(p.train.diff)} → 測試段 ${signed(p.test.diff)}(p≈${p.test.p.toFixed(2)},多個種子的平均,僅供參考),單位:平均命中個數 − 隨機理論值`))),
     h("div", { class: "report" }, "怎麼看:訓練段的好成績是「事後挑出來的」;沒參與挑選的測試段通常會回到 0 附近,代表這些組合沒有可靠的優勢,按鈕只是方便你快速套用,不是更準的組合。")) : null;
 
   // ---- 配方 ----
@@ -131,7 +131,7 @@ export async function renderPick(root, game, ui) {
   const filterOff = st.add > 0;
   const recipeCard = h("div", { class: "card" },
     h("h3", {}, "配方選號"),
-    h("div", { class: "hint", style: "margin:-6px 0 10px" }, `依統計來源取號,按順序;已被取走的號碼自動跳過。全域範圍沿用「統計」分頁的設定(目前 ${draws.length} 期)。`),
+    h("div", { class: "hint", style: "margin:-6px 0 10px" }, `依統計來源取號,按順序;已被取走的號碼自動跳過。全域範圍沿用「統計」分頁的設定(目前 ${draws.length} 期);條目若自訂範圍,則從全部 ${all.length} 期歷史取,不受全域範圍限制。`),
     ...itemRows,
     st.items.some(i => i.source === "ref_other") && h("div", { class: "hint" }, refLast
       ? `引用:${refGameName(game)}最後一期(${refLast.date}):${refLast.numbers.map(fmt).join(" ")}。超出本遊戲號碼範圍的號碼會略過。`
@@ -143,7 +143,7 @@ export async function renderPick(root, game, ui) {
       h("label", { class: "row", style: "gap:6px" }, h("input", { type: "checkbox", checked: st.fillRandom, onchange: e => { st.fillRandom = e.target.checked; } }), "不足時剩餘以隨機補滿"),
       h("label", { class: "row", style: "gap:6px" }, "同分:", h("select", { class: "input sel", onchange: e => { st.tieBreak = e.target.value; } },
         h("option", { value: "random", selected: st.tieBreak === "random" }, "隨機"), h("option", { value: "small", selected: st.tieBreak === "small" }, "較小號優先")))),
-    h("div", { style: "margin-top:12px" }, h("button", { class: "btn yellow", onclick: () => run("配方", (r, f) => generateByRecipe(game, draws, { items: st.items, tieBreak: st.tieBreak, fillRandom: st.fillRandom, fixed: f, add: st.add, ref: refNumbers }, r)) }, "依配方產生")));
+    h("div", { style: "margin-top:12px" }, h("button", { class: "btn yellow", onclick: () => run("配方", (r, f) => generateByRecipe(game, draws, { items: st.items, tieBreak: st.tieBreak, fillRandom: st.fillRandom, fixed: f, add: st.add, ref: refNumbers, full: all }, r)) }, "依配方產生")));
 
   // ---- 產生選項(組數、過濾、種子) ----
   const options = h("div", { class: "card" },
@@ -163,7 +163,7 @@ export async function renderPick(root, game, ui) {
     .sort((a, b) => (a.rank ? STRATEGY_RANK[game.name].indexOf(a.rank) : 99) - (b.rank ? STRATEGY_RANK[game.name].indexOf(b.rank) : 99) || a.i - b.i);
   const strategies = h("div", { class: "card" },
     h("h3", {}, "一鍵策略"),
-    h("div", { class: "row" }, rankedStrategies.map(s => h("button", { class: "btn sm" + (s.id === "balanced" ? " mint" : ""), title: (s.note ? s.note + " / " : "") + (s.rank ? `回測 ${signed(s.rank.diff)}(p=${s.rank.p.toFixed(2)})` : ""), onclick: () => run(s.label, (r, f) => s.run(game, draws, { fixed: f, add: st.add }, r)) }, s.label, s.rank && h("small", { class: "rankdiff" }, ` ${signed(s.rank.diff)}`)))),
+    h("div", { class: "row" }, rankedStrategies.map(s => h("button", { class: "btn sm" + (s.id === "balanced" ? " mint" : ""), title: (s.note ? s.note + " / " : "") + (s.rank ? `回測 ${signed(s.rank.diff)}(p≈${s.rank.p.toFixed(2)},多個種子的平均)` : ""), onclick: () => run(s.label, (r, f) => s.run(game, draws, { fixed: f, add: st.add }, r)) }, s.label, s.rank && h("small", { class: "rankdiff" }, ` ${signed(s.rank.diff)}`)))),
     h("div", { class: "hint" }, "按鈕由左至右、由上而下,依回測成績(最近約 2000 期,與隨機理論值的差,單位:平均命中個數)排列。排名不代表更準:差距多半不顯著(看 p 值),純隨機基準也會排在中間,換遊戲或重跑名次就變。"),
     h("div", { class: "hint" }, "均衡型:奇偶比、大小比取歷史常見種類,和值落在歷史 10%~90% 區間,再隨機填號,目的是避開極端組合而非提高中獎率。純隨機是基準線。長按/滑過按鈕可看各策略說明。"),
     h("div", { class: "row", style: "margin-top:10px" }, "多注覆蓋:", coverIn, "注",

@@ -13,6 +13,7 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? +proc
 const TESTS = arg("--tests", 2000), SEEDS = arg("--seeds", 2);
 const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
+// p = 各種子 p 值的平均:不是嚴格的檢定 p 值(介面標示為「p≈…多個種子的平均,僅供參考」),只用來粗看差距是否明顯。
 const out = {};
 for (const spec of Object.values(GAMES)) {
   if (only && spec.name !== only) { out[spec.name] = OLD[spec.name]; continue; }
