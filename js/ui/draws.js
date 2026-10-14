@@ -1,6 +1,6 @@
 // 「開獎」分頁:近 N 期列表、手動輸入、CSV 匯入、本機資料匯出入。
 import { h, toast, download } from "./dom.js";
-import { getDraws, addToLocal, exportLocal, clearLocal, loadLocal } from "../data/store.js";
+import { getDraws, addToLocal, exportLocal, clearLocal, loadLocal, loadUpdatedAt } from "../data/store.js";
 import { parseCsv, checkContinuity } from "../engine/draws.js";
 import { fetchLatest } from "../data/official.js";
 
@@ -11,6 +11,7 @@ const money = n => (n == null ? "-" : Number(n).toLocaleString("en-US"));
 
 export async function renderDraws(root, game, ui) {
   const { draws, localPeriods } = await getDraws(game);
+  const updatedAt = await loadUpdatedAt(game);
   const state = (ui.drawsState ??= { n: 10, extra: false, from: "", to: "" });
   const body = h("div", { class: "view" });
   root.replaceChildren(body);
@@ -52,7 +53,7 @@ export async function renderDraws(root, game, ui) {
   body.append(
     h("div", { class: "label" }, `${game.name} 近期開獎`),
     h("div", { class: "card" }, chips,
-      h("div", { class: "hint" }, `共 ${draws.length} 期,最新:${last.period}(${last.date})。綠色號碼 = 與上一期重複` + (game.extra ? `;粉紅 = ${game.extra.label}。` : "。")),
+      h("div", { class: "hint" }, `共 ${draws.length} 期,最新:${last.period}(${last.date})。` + (updatedAt ? `網站資料更新於 ${updatedAt}(台灣時間)。` : "") + `綠色號碼 = 與上一期重複` + (game.extra ? `;粉紅 = ${game.extra.label}。` : "。")),
       h("div", { style: "margin-top:12px" }, list)));
 
   // ---- 更新資料 ----

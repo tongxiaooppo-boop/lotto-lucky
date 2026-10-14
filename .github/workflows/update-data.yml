@@ -34,6 +34,8 @@ jobs:
         run: node tools/fetch_ca539.mjs
       - name: 重建 data/*.json
         run: python tools/build_json.py
+      - name: 記錄資料更新時間(data/meta.json)
+        run: node tools/stamp_meta.mjs
       - name: 驗證資料與測試
         run: |
           node tools/check_data.mjs

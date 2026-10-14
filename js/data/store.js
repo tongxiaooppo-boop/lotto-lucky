@@ -14,6 +14,17 @@ export async function loadBase(game) {
   return baseCache[game.name];
 }
 
+// 該遊戲資料最後一次實際更新的時間(台灣時間字串);讀不到回傳 null。
+export async function loadUpdatedAt(game) {
+  try {
+    const res = await fetch("data/meta.json", { cache: "no-cache" });
+    if (!res.ok) return null;
+    const at = (await res.json())[game.name]?.updatedAt;
+    if (!at) return null;
+    return new Date(at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  } catch { return null; }
+}
+
 export function loadLocal(game) {
   return safe(() => JSON.parse(localStorage.getItem(KEY(game.name)) || "[]")) || [];
 }

@@ -1,6 +1,6 @@
 // 「統計」分頁:範圍選擇列 + 各統計區塊(表格 + 長條圖)。
 import { h } from "./dom.js";
-import { getDraws } from "../data/store.js";
+import { getDraws, loadUpdatedAt } from "../data/store.js";
 import * as S from "../engine/stats/index.js";
 import { fmt, pct, ball, bar, sortableTable } from "./widgets.js";
 import { renderMore, MORE_SECTIONS } from "./stats_more.js";
@@ -21,6 +21,7 @@ const CORE_SECTIONS = ["次數", "連莊", "遺漏", "近期", "重號", "和值
 
 export async function renderStats(root, game, ui) {
   const { draws: all } = await getDraws(game);
+  const updatedAt = await loadUpdatedAt(game);
   const sc = statsState(ui, game);
   const body = h("div", { class: "view" });
   root.replaceChildren(body);
@@ -42,7 +43,7 @@ export async function renderStats(root, game, ui) {
       h("input", { class: "input", style: "width:auto", type: "date", value: sc.from, onchange: e => { sc.from = e.target.value; rerender(); } }), "~",
       h("input", { class: "input", style: "width:auto", type: "date", value: sc.to, onchange: e => { sc.to = e.target.value; rerender(); } })),
     h("div", { class: "hint" }, draws.length
-      ? `${game.name}:共 ${draws.length} 期(${draws[0].date} ~ ${draws.at(-1).date})。預設 ${game.defaultScope} 期。`
+      ? `${game.name}:共 ${draws.length} 期(${draws[0].date} ~ ${draws.at(-1).date})。預設 ${game.defaultScope} 期。` + (updatedAt ? `網站資料更新於 ${updatedAt}(台灣時間)。` : "")
       : "此範圍內沒有資料。"));
 
   const secBar = h("div", { class: "row" }, [...CORE_SECTIONS, ...MORE_SECTIONS].map(s => h("button", { class: "chip mint" + (sc.section === s ? " on" : ""), onclick: () => { sc.section = s; rerender(); } }, s)));
