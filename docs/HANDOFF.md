@@ -134,8 +134,7 @@ CI(`check.yml`)在每次 push 跑資料驗證與上述全部測試,含 `test_ui.
 - UI 驗證踩坑:改完 JS 一定要在瀏覽器實際載入一次(曾有字串斷行造成整站卡在「載入中」,`node --check` 沒抓到);無頭 Chrome 要用全新 user-data-dir 才不會吃到舊快取。
 - 本機 8000 埠的預覽伺服器可能還在背景執行(`start.bat` 或 `python -m http.server 8000`)。
 
-- 用 Python/Node 的 heredoc 寫含 `
-` 的 JS 字串仍會被轉成真的換行(2026-10-14 又踩一次),含反斜線的改動一律用 Edit 工具。
+- 經 Bash heredoc 跑 Python/Node 腳本改檔時,字串裡的反斜線跳脫(例如換行符號)會被轉成真的換行(2026-10-14 又踩一次,連寫這條筆記都中招),含反斜線的改動一律用 Edit 工具。
 
 ## 8.5 加州539 相關踩坑
 - 加州彩券官網擋台灣 IP:本機跑 `fetch_ca539.mjs` 必定 403(Windows 上還會多印一行 libuv 斷言訊息,可忽略)。要驗證只能走 Actions。
