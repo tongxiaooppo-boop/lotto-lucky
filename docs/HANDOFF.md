@@ -49,6 +49,7 @@ book/                               外部 5 個 repo 與分析(已 .gitignore,�
 - `python tools/build_json.py`:先處理 `api/`、`manual/`,再處理官方 CSV,**同期別以官方 CSV 為準**,輸出 `data/*.json`。
 - `node tools/fetch_latest.mjs`:與既有資料同期別但號碼不同 = 衝突,不寫入、結束碼 1(等人工確認)。`--dry` 只檢查不寫檔。
 - **自動更新**:`update-data.yml` 排程(GitHub cron 實測會延遲 6~8 小時,所以各有兩個備援,沒新資料不 commit):台灣三遊戲週一到六 21:29 + 備援 23:29、01:29;加州539 每天台灣 12:29 + 備援 14:29、16:29。流程:抓取 → 重建 JSON → 驗證 → commit → 觸發 `pages.yml`。有 `concurrency` 與 10 分鐘 timeout。手動:Actions 頁面 → update-data → Run workflow。
+- **資料更新時間**:`tools/stamp_meta.mjs`(update-data 在重建 JSON 後執行)只在某遊戲的 `data/*.json` 有變動時,才把當下時間寫進 `data/meta.json`;網頁「開獎」與「統計」分頁以台灣時間顯示「網站資料更新於…」。沒新資料時 meta 不變、不會多 commit。
 - 網頁「從官網更新」把新資料存在**使用者自己的瀏覽器**(標示「本機」),不會寫回 repo。
 
 ### 加州539(California Fantasy 5)資料管線
