@@ -1,6 +1,6 @@
 # 樂透工具 · 交接說明
 
-> 更新:2026-10-14(全系統審核後修正 14 項,見 §6.5)　讀完這份就能接手,不需要看對話紀錄。最新 commit 用 `git log -1` 看。
+> 更新:2026-11-27(Actions 狀態確認,見 §8 末)；2026-10-14(全系統審核後修正 14 項,見 §6.5)　讀完這份就能接手,不需要看對話紀錄。最新 commit 用 `git log -1` 看。
 
 ## 1. 現況
 - **線上網站**:https://tongxiaooppo-boop.github.io/lotto-lucky/
@@ -135,6 +135,9 @@ CI(`check.yml`)在每次 push 跑資料驗證與上述全部測試,含 `test_ui.
 - 本機 8000 埠的預覽伺服器可能還在背景執行(`start.bat` 或 `python -m http.server 8000`)。
 
 - 經 Bash heredoc 跑 Python/Node 腳本改檔時,字串裡的反斜線跳脫(例如換行符號)會被轉成真的換行(2026-10-14 又踩一次,連寫這條筆記都中招),含反斜線的改動一律用 Edit 工具。
+
+- **Actions 偶發失敗(2026-11-25 兩次,GitHub 端暫時故障,不用改程式)**:① `update-data` 資料已 commit/push 成功,但最後 `gh workflow run pages.yml` 回 HTTP 500 → 該輪沒觸發部署;② `pages` 的 deploy 步驟 `Fetching artifact metadata failed`。下一輪排程會再觸發 pages,11-26 起全部成功、網站資料沒缺。判讀方式:`gh run list` 看之後是否有成功的 `pages`;有就不用處理,沒有才手動 `gh workflow run pages.yml`。11-27 全部成功。
+- 本機 repo 會落後遠端很多(資料 commit 都由 Actions 產生),動手前先 `git pull`。
 
 ## 8.5 加州539 相關踩坑
 - 加州彩券官網擋台灣 IP:本機跑 `fetch_ca539.mjs` 必定 403(Windows 上還會多印一行 libuv 斷言訊息,可忽略)。要驗證只能走 Actions。
